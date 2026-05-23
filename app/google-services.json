@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "735894193145",
+    "project_id": "tpimodulonativo",
+    "storage_bucket": "tpimodulonativo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:735894193145:android:a82a04c7b46d66962ff328",
+        "android_client_info": {
+          "package_name": "com.catedra.tpinativo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFqRUSs34o0Nvns6hm94rnt-BTlg14Yp8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

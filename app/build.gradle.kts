@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services") // <-- por firebase google services
 }
 
 android {
@@ -40,7 +41,19 @@ android {
 }
 
 dependencies {
+    // --- FIREBASE ---
+    // El BoM 33.10.0 es el más estable para Kotlin 2.x
+    implementation(platform("com.google.firebase:firebase-bom:33.10.0"))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-auth")
 
+    // --- NAVEGACIÓN Y COMPOSE ---
+    // Actualizamos a la 2.8.5 para que sea compatible con el nuevo compilador de Kotlin
+    implementation("androidx.navigation:navigation-compose:2.8.5")
+
+    // Actualizamos a la 2.8.7 para que el ciclo de vida no choque con las versiones nuevas
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
