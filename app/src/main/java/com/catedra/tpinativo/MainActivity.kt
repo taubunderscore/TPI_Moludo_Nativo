@@ -14,7 +14,7 @@ import com.catedra.tpinativo.ui.screens.HabitosViewModel
 import com.catedra.tpinativo.ui.theme.TPINativoTheme
 
 class MainActivity : ComponentActivity() {
-    // 1. Instanciamos el ViewModel de forma delegada. Es inmortal a las rotaciones.
+    // 1. Instanciamos el ViewModel . Es inmortal a las rotaciones.
     private val habitosViewModel: HabitosViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
