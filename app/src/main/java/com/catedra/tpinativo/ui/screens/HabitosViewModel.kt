@@ -1,5 +1,5 @@
 package com.catedra.tpinativo.ui.screens
-
+import com.google.firebase.auth.FirebaseAuth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.catedra.tpinativo.data.Habito
@@ -7,6 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 // Estructura de estado unificada para la UI (como en el Lab 2B)
@@ -18,9 +19,38 @@ data class HabitosUiState(
 
 class HabitosViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
+    private val _loginError = MutableStateFlow<String?>(null)
+    val loginError = _loginError.asStateFlow()
+
+    fun iniciarSesion(email: String, password: String, onResultado: (Boolean) -> Unit) {
+        if (email.isBlank() || password.isBlank()) {
+            _loginError.value = "Por favor, completa todos los campos"
+            onResultado(false)
+            return
+        }
+
+        _loginError.value = null // Limpiamos errores previos
+
+        auth.signInWithEmailAndPassword(email, password)
+            .addOnCompleteListener { tarea ->
+                if (tarea.isSuccessful) {
+                    // ¡Login exitoso en los servidores de Google!
+                    onResultado(true)
+                } else {
+                    // Si falló (contraseña mal, usuario no existe, etc.)
+                    _loginError.value = tarea.exception?.localizedMessage ?: "Error de autenticación"
+                    onResultado(false)
+                }
+            }
+    }
+
+    fun limpiarError() {
+        _loginError.value = null
+    }
 
     private val _uiState = MutableStateFlow(HabitosUiState())
-    val uiState: StateFlow<HabitosUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<HabitosUiState> = _uiState.asStateFlow() //lo expongo protegido por seguridad
 
     // LEER: Escucha los datos de la colección en tiempo real filtrados por usuario (RF2)
     fun cargarHabitos(userId: String) {

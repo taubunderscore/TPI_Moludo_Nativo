@@ -9,8 +9,11 @@ import androidx.navigation.navArgument
 import com.catedra.tpinativo.ui.screens.DetalleHabitoScreen
 import com.catedra.tpinativo.ui.screens.HabitosScreen
 import com.catedra.tpinativo.ui.screens.HabitosViewModel
+import com.catedra.tpinativo.ui.screens.LoginScreen
 
+// Creo un singleton para que no exista otra instancia igual
 object Rutas {
+    const val LOGIN = "login"
     const val LISTA = "lista"
     const val DETALLE = "detalle/{habitoId}"
     fun detalle(id: String) = "detalle/$id"
@@ -20,7 +23,24 @@ object Rutas {
 fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Rutas.LISTA) {
+    NavHost(
+        navController = navController,
+        startDestination = Rutas.LOGIN
+    ) {
+        // Pantalla de Login
+        composable(Rutas.LOGIN) {
+            LoginScreen(
+                viewModel = viewModel,
+                onLoginExitoso = {
+                    // Cuando toca ingresar, viaja a la lista y BORRA el Login del historial
+                    navController.navigate(Rutas.LISTA) {
+                        popUpTo(Rutas.LOGIN) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // Pantalla de Lista de Hábitos
         composable(Rutas.LISTA) {
             HabitosScreen(
                 viewModel = viewModel,
@@ -31,11 +51,13 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
             )
         }
 
+        // Pantalla de Detalle
         composable(
             route = Rutas.DETALLE,
-            arguments = listOf(navArgument("habitoId") { type = NavType.StringType })
+            arguments = listOf(navArgument("habitoId") { type = NavType.StringType }) // Le digo a navhost qué parámetros espera recibir esa ruta y de qué tipo son
         ) { backStackEntry ->
             val habitoId = backStackEntry.arguments?.getString("habitoId") ?: ""
+            // Acá está la papa, es donde termino llamando al detalle, y le meto o configuro el botón volver
             DetalleHabitoScreen(
                 habitoId = habitoId,
                 viewModel = viewModel,

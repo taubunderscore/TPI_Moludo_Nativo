@@ -22,11 +22,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge() // Mantiene el diseño moderno de borde a borde
         setContent {
             TPINativoTheme {
+                // surface es mi nuevo contendor  visual como lo era fragment o un div
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // 2. Reemplazamos el "Hello Android" y encendemos nuestro enrutador central
+                    // Reemplazamos el "Hello Android" y encendemos nuestro enrutador central
                     AppNavigation(
                         viewModel = habitosViewModel,
                         userId = "user_varela_123" // ID simulado para filtrar en Firestore
