@@ -7,24 +7,70 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.catedra.tpinativo.viewmodel.HabitosViewModel
+import androidx.compose.ui.tooling.preview.Preview
+import com.catedra.tpinativo.ui.theme.TPINativoTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
+// ==========================================
+// 1. LA PREVIEW (Ahora funciona 100% offline)
+// ==========================================
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun LoginScreenPreview() {
+    TPINativoTheme {
+        // Le pasamos datos de prueba estáticos directamente al contenido,
+        // esquivando por completo al ViewModel y a Firebase.
+        LoginContent(
+            errorMensaje = "Contraseña incorrecta (Ejemplo de Preview)",
+            isLoadingInit = false,
+            onIniciarSesionClick = { _, _ -> }
+        )
+    }
+}
+
+// ==========================================
+// 2. CONTENEDOR REAL (El que usa la app)
+// ==========================================
 @Composable
 fun LoginScreen(
-    viewModel: com.catedra.tpinativo.ui.screens.HabitosViewModel, // Pasamos el ViewModel
+    viewModel: HabitosViewModel,
     onLoginExitoso: () -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    val errorMensaje by viewModel.loginError.collectAsState()
     var isLoading by remember { mutableStateOf(false) }
 
-    // Observamos si el cerebro arroja algún error de Firebase
-    val errorMensaje by viewModel.loginError.collectAsState()
-
-    // Limpiar errores cuando la pantalla se destruye
     DisposableEffect(Unit) {
         onDispose { viewModel.limpiarError() }
     }
+
+    // Este contenedor solo actúa de puente con el ViewModel
+    LoginContent(
+        errorMensaje = errorMensaje,
+        isLoadingInit = isLoading,
+        onIniciarSesionClick = { email, password ->
+            isLoading = true
+            viewModel.iniciarSesion(email, password) { exito ->
+                isLoading = false
+                if (exito) {
+                    onLoginExitoso()
+                }
+            }
+        }
+    )
+}
+
+// ==========================================
+// 3. EL CONTENIDO VISUAL (Limpio de dependencias pesadas)
+// ==========================================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LoginContent(
+    errorMensaje: String?,
+    isLoadingInit: Boolean,
+    onIniciarSesionClick: (String, String) -> Unit
+) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -59,11 +105,10 @@ fun LoginScreen(
             singleLine = true
         )
 
-        // Si Firebase nos rebota, lo mostramos en rojo acá abajo
         if (errorMensaje != null) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = errorMensaje!!,
+                text = errorMensaje,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -72,23 +117,17 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick = {
-                isLoading = true
-                // LLAMADA REAL AL BACKEND DE FIREBASE
-                viewModel.iniciarSesion(email, password) { exito ->
-                    isLoading = false
-                    if (exito) {
-                        onLoginExitoso()
-                    }
-                }
-            },
+            onClick = { onIniciarSesionClick(email, password) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            enabled = !isLoading
+            enabled = !isLoadingInit
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
+            if (isLoadingInit) {
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
             } else {
                 Text("Iniciar Sesión", style = MaterialTheme.typography.titleMedium)
             }

@@ -10,7 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.catedra.tpinativo.navigation.AppNavigation
-import com.catedra.tpinativo.ui.screens.HabitosViewModel
+import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.catedra.tpinativo.ui.theme.TPINativoTheme
 
 class MainActivity : ComponentActivity() {

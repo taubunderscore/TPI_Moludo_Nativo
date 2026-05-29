@@ -1,14 +1,11 @@
-package com.catedra.tpinativo.ui.screens
+package com.catedra.tpinativo.viewmodel
 import com.google.firebase.auth.FirebaseAuth
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.catedra.tpinativo.data.Habito
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 // Estructura de estado unificada para la UI (como en el Lab 2B)
 data class HabitosUiState(
