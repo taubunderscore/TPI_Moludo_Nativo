@@ -12,30 +12,77 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.catedra.tpinativo.data.Habito
 
+// IMPORTS ESENCIALES PARA LA PREVIEW Y EL TEMA
+import androidx.compose.ui.tooling.preview.Preview
+import com.catedra.tpinativo.ui.theme.TPINativoTheme
 
+// ==========================================
+// 1. LA PREVIEW (Corregida con imports)
+// ==========================================
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun HabitosScreenPreview() {
+    TPINativoTheme {
+        // Usamos variables auxiliares con nombres explícitos para evitar errores de posición
+        val habito1 = Habito(id = "1", nombre = "Ir al gimnasio (Preview)", categoria = "Físico", cumplido = false, userId = "user_123")
+        val habito2 = Habito(id = "2", nombre = "Tomar agua (Preview)", categoria = "Salud", cumplido = true, userId = "user_123")
+        val habito3 = Habito(id = "3", nombre = "Revisar tableros de Grafana", categoria = "Productividad", cumplido = false, userId = "user_123")
+
+        HabitosContent(
+            habitos = listOf(habito1, habito2, habito3),
+            cargando = false,
+            error = null,
+            onVerDetalle = {},
+            onAlternarEstado = { _, _ -> }
+        )
+    }
+}
+
+// ==========================================
+// 2. CONTENEDOR REAL (Maneja la lógica y Firebase)
+// ==========================================
 @Composable
 fun HabitosScreen(
     viewModel: HabitosViewModel,
     userId: String,
     onVerDetalle: (String) -> Unit
 ) {
-    // Escucha del StateFlow (como pide el Lab 3B)
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(userId) {
         viewModel.cargarHabitos(userId)
     }
 
+    HabitosContent(
+        habitos = uiState.habitos,
+        cargando = uiState.cargando,
+        error = uiState.error,
+        onVerDetalle = onVerDetalle,
+        onAlternarEstado = { id, cumplido -> viewModel.alternarEstadoHabito(id, cumplido) }
+    )
+}
+
+// ==========================================
+// 3. EL CONTENIDO VISUAL (Limpio y reutilizable)
+// ==========================================
+@Composable
+fun HabitosContent(
+    habitos: List<Habito>,
+    cargando: Boolean,
+    error: String?,
+    onVerDetalle: (String) -> Unit,
+    onAlternarEstado: (String, Boolean) -> Unit
+) {
     Scaffold(
         topBar = {
-            // Usamos un Row común con fondo de la app. Es estable y no falla nunca
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Mis Hábitos Diarios",
@@ -45,17 +92,17 @@ fun HabitosScreen(
         }
     ) { innerPadding ->
         when {
-            uiState.cargando -> {
+            cargando -> {
                 Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
-            uiState.error != null -> {
+            error != null -> {
                 Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
+                    Text("Error: $error", color = MaterialTheme.colorScheme.error)
                 }
             }
-            uiState.habitos.isEmpty() -> {
+            habitos.isEmpty() -> {
                 Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                     Text("No hay hábitos creados para hoy.")
                 }
@@ -65,7 +112,7 @@ fun HabitosScreen(
                     modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(uiState.habitos) { habito ->
+                    items(habitos) { habito ->
                         Card(
                             modifier = Modifier.fillMaxWidth().clickable { onVerDetalle(habito.id) }
                         ) {
@@ -80,7 +127,7 @@ fun HabitosScreen(
                                 }
                                 Checkbox(
                                     checked = habito.cumplido,
-                                    onCheckedChange = { viewModel.alternarEstadoHabito(habito.id, habito.cumplido) }
+                                    onCheckedChange = { onAlternarEstado(habito.id, habito.cumplido) }
                                 )
                             }
                         }

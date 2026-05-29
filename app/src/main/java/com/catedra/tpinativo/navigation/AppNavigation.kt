@@ -8,7 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.catedra.tpinativo.ui.screens.DetalleHabitoScreen
 import com.catedra.tpinativo.ui.screens.HabitosScreen
-import com.catedra.tpinativo.ui.screens.HabitosViewModel
+import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.catedra.tpinativo.ui.screens.LoginScreen
 
 // Creo un singleton para que no exista otra instancia igual
