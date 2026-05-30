@@ -2,6 +2,7 @@ package com.catedra.tpinativo.data.repository
 
 import com.catedra.tpinativo.data.model.HabitoPlantilla
 import com.catedra.tpinativo.data.model.HabitoSuscrito
+import com.catedra.tpinativo.data.model.TipoFrecuencia
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
@@ -57,5 +58,53 @@ class HabitosRepository {
         }
 
         return nuevasFechas // Devolvemos la lista mutada para los cálculos del Caso de Uso
+    }
+
+    // 4. Trae las plantillas del catálogo global según la categoría (CONVERSIÓN SEGURA)
+    suspend fun obtenerPlantillasPorCategoria(categoria: String): List<HabitoPlantilla> {
+        return try {
+            val snapshot = db.collection("habitos_plantillas")
+                .whereEqualTo("categoria", categoria)
+                .get()
+                .await()
+
+            snapshot.documents.map { doc ->
+                val frecuenciaTexto = doc.getString("frecuencia") ?: "DIARIO"
+
+                HabitoPlantilla(
+                    id = doc.id,
+                    nombre = doc.getString("nombre") ?: "",
+                    categoria = doc.getString("categoria") ?: "",
+                    frecuencia = try {
+                        TipoFrecuencia.valueOf(frecuenciaTexto.uppercase())
+                    } catch (e: Exception) {
+                        TipoFrecuencia.DIARIO
+                    }
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    // 5. Crea un nuevo registro en las suscripciones del usuario en caliente
+    suspend fun suscribirUsuarioAHabito(userId: String, plantilla: HabitoPlantilla) {
+        try {
+            val nuevaSubRef = db.collection("usuarios_suscripciones").document()
+
+            val nuevaSuscripcion = hashMapOf(
+                "id" to nuevaSubRef.id,
+                "plantillaId" to plantilla.id,
+                "userId" to userId,
+                "nombre" to plantilla.nombre,
+                "categoria" to plantilla.categoria,
+                "frecuencia" to plantilla.frecuencia.name, // 🚀 Guardamos el String puro del Enum
+                "fechasCumplidas" to emptyList<String>()
+            )
+
+            nuevaSubRef.set(nuevaSuscripcion).await()
+        } catch (e: Exception) {
+            // Manejo de error por si falla la inserción
+        }
     }
 }
