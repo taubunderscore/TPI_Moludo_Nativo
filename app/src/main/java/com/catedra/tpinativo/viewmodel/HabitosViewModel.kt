@@ -1,74 +1,85 @@
 package com.catedra.tpinativo.viewmodel
-import com.google.firebase.auth.FirebaseAuth
+
 import androidx.lifecycle.ViewModel
-import com.catedra.tpinativo.data.Habito
-import com.google.firebase.firestore.FirebaseFirestore
+import androidx.lifecycle.viewModelScope
+import com.catedra.tpinativo.data.model.HabitoSuscrito
+import com.catedra.tpinativo.data.repository.HabitosRepository
+import com.catedra.tpinativo.domain.usecase.GestionarProgresoHabitoUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-// Estructura de estado unificada para la UI (como en el Lab 2B)
+// Representa el estado de la pantalla
 data class HabitosUiState(
-    val habitos: List<Habito> = emptyList(),
-    val cargando: Boolean = true,
-    val error: String? = null
+    val habitos: List<HabitoSuscrito> = emptyList(),
+    val cargando: Boolean = false,
+    val error: String? = null,
+    val ultimoDesafioLogrado: String? = null // Guarda el nombre del desafío si acaba de ganar uno
 )
 
-class HabitosViewModel : ViewModel() {
-    private val db = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
-    private val _loginError = MutableStateFlow<String?>(null)
-    val loginError = _loginError.asStateFlow()
-
-    fun iniciarSesion(email: String, password: String, onResultado: (Boolean) -> Unit) {
-        if (email.isBlank() || password.isBlank()) {
-            _loginError.value = "Por favor, completa todos los campos"
-            onResultado(false)
-            return
-        }
-
-        _loginError.value = null // Limpiamos errores previos
-
-        auth.signInWithEmailAndPassword(email, password)
-            .addOnCompleteListener { tarea ->
-                if (tarea.isSuccessful) {
-                    // ¡Login exitoso en los servidores de Google!
-                    onResultado(true)
-                } else {
-                    // Si falló (contraseña mal, usuario no existe, etc.)
-                    _loginError.value = tarea.exception?.localizedMessage ?: "Error de autenticación"
-                    onResultado(false)
-                }
-            }
-    }
-
-    fun limpiarError() {
-        _loginError.value = null
-    }
+class HabitosViewModel(
+    private val habitosRepository: HabitosRepository,
+    private val gestionarProgresoHabitoUseCase: GestionarProgresoHabitoUseCase
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HabitosUiState())
-    val uiState: StateFlow<HabitosUiState> = _uiState.asStateFlow() //lo expongo protegido por seguridad
+    val uiState: StateFlow<HabitosUiState> = _uiState.asStateFlow()
 
-    // LEER: Escucha los datos de la colección en tiempo real filtrados por usuario (RF2)
+    // Carga los hábitos del usuario usando el repositorio
     fun cargarHabitos(userId: String) {
-        _uiState.value = _uiState.value.copy(cargando = true)
-
-        db.collection("habitos")
-            .whereEqualTo("userId", userId)
-            .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    _uiState.value = HabitosUiState(cargando = false, error = e.message)
-                    return@addSnapshotListener
-                }
-
-                val lista = snapshot?.toObjects(Habito::class.java) ?: emptyList()
-                _uiState.value = HabitosUiState(habitos = lista, cargando = false)
+        viewModelScope.launch {
+            _uiState.update { it.copy(cargando = true, error = null) }
+            try {
+                val lista = habitosRepository.obtenerSuscripcionesUsuario(userId)
+                _uiState.update { it.copy(habitos = lista, cargando = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.localizedMessage, cargando = false) }
             }
+        }
     }
 
-    // ACTUALIZAR: Alterna el checkbox y actualiza Firestore de forma remota (RF4)
-    fun alternarEstadoHabito(habitoId: String, estadoActual: Boolean) {
-        db.collection("habitos").document(habitoId)
-            .update("cumplido", !estadoActual)
+    // Se ejecuta al tocar el checkbox, delegando la lógica al caso de uso modular
+    fun alternarEstadoHabito(habito: HabitoSuscrito) {
+        viewModelScope.launch {
+            try {
+                // 1. Ejecutamos el caso de uso (guarda en DB, calcula %, verifica meta)
+                val resultado = gestionarProgresoHabitoUseCase.ejecutar(habito)
+
+                // 2. Actualizamos la lista local en memoria para que la UI cambie al instante
+                _uiState.update { estadoActual ->
+                    val listaActualizada = estadoActual.habitos.map { item ->
+                        if (item.id == resultado.habitoActualizado.id) resultado.habitoActualizado else item
+                    }
+                    estadoActual.copy(
+                        habitos = listaActualizada,
+                        // Si se desbloqueó un desafío, guardamos el nombre para avisarle a la UI
+                        ultimoDesafioLogrado = if (resultado.desafioDesbloqueado) resultado.nombreDesafio else null
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "No se pudo actualizar el estado") }
+            }
+        }
+    }
+
+    // Función para limpiar el cartel de festejo una vez mostrado
+    fun resetearAlertaDesafio() {
+        _uiState.update { it.copy(ultimoDesafioLogrado = null) }
+    }
+}
+// 🚀 AGREGÁ ESTA CLASE FACTORY AL FINAL DEL ARCHIVO (Afuera de la clase principal):
+class HabitosViewModelFactory(
+    private val habitosRepository: HabitosRepository,
+    private val gestionarProgresoHabitoUseCase: GestionarProgresoHabitoUseCase
+) : androidx.lifecycle.ViewModelProvider.Factory {
+
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(HabitosViewModel::class.java)) {
+            return HabitosViewModel(habitosRepository, gestionarProgresoHabitoUseCase) as T
+        }
+        throw IllegalArgumentException("Clase ViewModel desconocida")
     }
 }

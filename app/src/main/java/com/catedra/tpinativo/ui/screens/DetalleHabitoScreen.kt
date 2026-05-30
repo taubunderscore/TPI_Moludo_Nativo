@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
-import com.catedra.tpinativo.data.Habito
+import com.catedra.tpinativo.data.model.HabitoSuscrito
 
 // IMPORTS PARA PREVIEW Y TEMA
 import androidx.compose.ui.tooling.preview.Preview
@@ -26,11 +26,11 @@ fun DetalleHabitoScreenPreview() {
     TPINativoTheme {
         // Le pasamos un objeto Habito hardcodeado directamente al diseño
         DetalleHabitoContent(
-            habito = Habito(
+            habito = HabitoSuscrito(
                 id = "habito_prueba_123",
                 nombre = "Rutina de piernas y saltos al cajón",
                 categoria = "Físico",
-                cumplido = false,
+                //cumplido = false,
                 userId = "user_varela_123"
             ),
             onVolver = {}
@@ -63,9 +63,12 @@ fun DetalleHabitoScreen(
 // ==========================================
 @Composable
 fun DetalleHabitoContent(
-    habito: Habito?,
+    habito: HabitoSuscrito?,
     onVolver: () -> Unit
 ) {
+    // Calculamos el String de hoy para comprobar el estado
+    val hoy = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+
     Scaffold(
         topBar = {
             Row(
@@ -92,15 +95,19 @@ fun DetalleHabitoContent(
                 .padding(24.dp)
         ) {
             if (habito != null) {
+                // Chequeamos si la lista de fechas del hábito contiene el día de hoy
+                val estaCumplidoHoy = habito.fechasCumplidas.contains(hoy)
+
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(text = habito.nombre, style = MaterialTheme.typography.headlineMedium)
                     Text(text = "Categoría: ${habito.categoria}", style = MaterialTheme.typography.bodyLarge)
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "Estado: ", style = MaterialTheme.typography.bodyLarge)
+                        Text(text = "Estado hoy: ", style = MaterialTheme.typography.bodyLarge)
                         AssistChip(
                             onClick = {},
-                            label = { Text(if (habito.cumplido) "CUMPLIDO" else "PENDIENTE") }
+                            // 🚀 USAMOS LA VARIABLE LOCAL CALCULADA:
+                            label = { Text(if (estaCumplidoHoy) "CUMPLIDO" else "PENDIENTE") }
                         )
                     }
                 }
