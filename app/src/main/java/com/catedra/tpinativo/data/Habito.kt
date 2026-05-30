@@ -1,12 +1,16 @@
 package com.catedra.tpinativo.data
 
-data class Habito(
-    val id: String = "",           // ID único autogenerado por Firestore
-    val userId: String = "",       // ID del usuario de Firebase Auth (RF2 de seguridad)
-    val nombre: String = "",       // Ej: "Beber agua", "Hacer ejercicio"
-    val categoria: String = "",    // Ej: "Salud", "Físico"
-    val cumplido: Boolean = false, // Estado del hábito
-    val fecha: String = "",         // Fecha de registro (YYYY-MM-DD)
-    val latitud: Double? = null,   // Opcionales para el RF5 (Geolocalización)
-    val longitud: Double? = null   // Opcionales para el RF5 (Geolocalización)
+data class HabitoSuscrito(
+    val id: String,
+    val plantillaId: String?, // Será NULL si el hábito lo inventó el usuario de cero
+    val userId: String,
+    val nombre: String,
+    val categoria: String,
+    val frecuencia: String,          // "DIARIO", "SEMANAL"
+    val diasConfigurados: List<Int>, // [1, 3, 5] si eligió días específicos
+    val fechasCumplidas: List<String> = emptyList(),
+
+    // LAS NOTIFICACIONES Y CREACIÓN:
+    val esPersonalizado: Boolean = false, // True si lo creó él, False si vino del catálogo
+    val horaRecordatorio: String? = null  // Ej: "18:45" (Null si no quiere alarmas)
 )

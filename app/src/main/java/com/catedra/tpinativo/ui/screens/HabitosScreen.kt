@@ -1,49 +1,20 @@
 package com.catedra.tpinativo.ui.screens
-
+import com.catedra.tpinativo.ui.theme.TPINativoTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.catedra.tpinativo.data.model.HabitoSuscrito
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
-import com.catedra.tpinativo.data.Habito
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
-// IMPORTS ESENCIALES PARA LA PREVIEW Y EL TEMA
-import androidx.compose.ui.tooling.preview.Preview
-import com.catedra.tpinativo.ui.theme.TPINativoTheme
-
-// ==========================================
-// 1. LA PREVIEW (Corregida con imports)
-// ==========================================
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun HabitosScreenPreview() {
-    TPINativoTheme {
-        // Usamos variables auxiliares con nombres explícitos para evitar errores de posición
-        val habito1 = Habito(id = "1", nombre = "Ir al gimnasio (Preview)", categoria = "Físico", cumplido = false, userId = "user_123")
-        val habito2 = Habito(id = "2", nombre = "Tomar agua (Preview)", categoria = "Salud", cumplido = true, userId = "user_123")
-        val habito3 = Habito(id = "3", nombre = "Revisar tableros de Grafana", categoria = "Productividad", cumplido = false, userId = "user_123")
-
-        HabitosContent(
-            habitos = listOf(habito1, habito2, habito3),
-            cargando = false,
-            error = null,
-            onVerDetalle = {},
-            onAlternarEstado = { _, _ -> }
-        )
-    }
-}
-
-// ==========================================
-// 2. CONTENEDOR REAL (Maneja la lógica y Firebase)
-// ==========================================
 @Composable
 fun HabitosScreen(
     viewModel: HabitosViewModel,
@@ -56,79 +27,131 @@ fun HabitosScreen(
         viewModel.cargarHabitos(userId)
     }
 
+    // 🏆 DIÁLOGO DE FESTEJO REACTIVO (Opción 1)
+    uiState.ultimoDesafioLogrado?.let { nombreDesafio ->
+        AlertDialog(
+            onDismissRequest = { viewModel.resetearAlertaDesafio() },
+            confirmButton = {
+                Button(onClick = { viewModel.resetearAlertaDesafio() }) { Text("¡Buenísimo!") }
+            },
+            title = { Text("🏆 ¡Desafío Completado!") },
+            text = { Text("Felicitaciones, desbloqueaste el logro:\n\n\"$nombreDesafio\"") }
+        )
+    }
+
     HabitosContent(
         habitos = uiState.habitos,
         cargando = uiState.cargando,
         error = uiState.error,
         onVerDetalle = onVerDetalle,
-        onAlternarEstado = { id, cumplido -> viewModel.alternarEstadoHabito(id, cumplido) }
+        onAlternarEstado = { habito -> viewModel.alternarEstadoHabito(habito) }
     )
 }
 
-// ==========================================
-// 3. EL CONTENIDO VISUAL (Limpio y reutilizable)
-// ==========================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HabitosContent(
-    habitos: List<Habito>,
+    habitos: List<HabitoSuscrito>,
     cargando: Boolean,
     error: String?,
     onVerDetalle: (String) -> Unit,
-    onAlternarEstado: (String, Boolean) -> Unit
+    onAlternarEstado: (HabitoSuscrito) -> Unit
 ) {
+    var filtroSeleccionado by remember { mutableStateOf("TODOS") }
+    var textoBuscado by remember { mutableStateOf("") }
+    val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+    // 🔍 LÓGICA DE FILTRADO EN MEMORIA (Requerimiento de Cátedra)
+    val habitosFiltrados = habitos.filter { habito ->
+        val cumpleTexto = habito.nombre.contains(textoBuscado, ignoreCase = true)
+        val estaCumplidoHoy = habito.fechasCumplidas.contains(hoy)
+        val cumpleEstado = when (filtroSeleccionado) {
+            "PENDIENTES" -> !estaCumplidoHoy
+            "CUMPLIDOS" -> estaCumplidoHoy
+            else -> true
+        }
+        cumpleTexto && cumpleEstado
+    }
+
     Scaffold(
         topBar = {
+            TopAppBar(title = { Text("Mis Hábitos Diarios") })
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            // Buscador
+            OutlinedTextField(
+                value = textoBuscado,
+                onValueChange = { textoBuscado = it },
+                label = { Text("🔍 Buscar hábito...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            // Fila de Filtros (Chips)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Mis Hábitos Diarios",
-                    style = MaterialTheme.typography.headlineSmall
+                FilterChip(
+                    selected = filtroSeleccionado == "TODOS",
+                    onClick = { filtroSeleccionado = "TODOS" },
+                    label = { Text("Todos") }
+                )
+                FilterChip(
+                    selected = filtroSeleccionado == "PENDIENTES",
+                    onClick = { filtroSeleccionado = "PENDIENTES" },
+                    label = { Text("Pendientes") }
+                )
+                FilterChip(
+                    selected = filtroSeleccionado == "CUMPLIDOS",
+                    onClick = { filtroSeleccionado = "CUMPLIDOS" },
+                    label = { Text("Cumplidos") }
                 )
             }
-        }
-    ) { innerPadding ->
-        when {
-            cargando -> {
-                Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-            error != null -> {
-                Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    Text("Error: $error", color = MaterialTheme.colorScheme.error)
-                }
-            }
-            habitos.isEmpty() -> {
-                Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                    Text("No hay hábitos creados para hoy.")
-                }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(habitos) { habito ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth().clickable { onVerDetalle(habito.id) }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+
+            // Listado
+            when {
+                cargando -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Error: $error", color = MaterialTheme.colorScheme.error) }
+                habitosFiltrados.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No se encontraron hábitos.") }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(habitosFiltrados) { habito ->
+                            val cumplidoHoy = habito.fechasCumplidas.contains(hoy)
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onVerDetalle(habito.id) }
                             ) {
-                                Column {
-                                    Text(text = habito.nombre, style = MaterialTheme.typography.titleMedium)
-                                    Text(text = habito.categoria, style = MaterialTheme.typography.bodySmall)
+                                Row(
+                                    modifier = Modifier
+                                        .padding(16.dp)
+                                        .fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(text = habito.nombre, style = MaterialTheme.typography.titleMedium)
+                                        Text(text = habito.categoria, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Checkbox(
+                                        checked = cumplidoHoy,
+                                        onCheckedChange = { onAlternarEstado(habito) }
+                                    )
                                 }
-                                Checkbox(
-                                    checked = habito.cumplido,
-                                    onCheckedChange = { onAlternarEstado(habito.id, habito.cumplido) }
-                                )
                             }
                         }
                     }

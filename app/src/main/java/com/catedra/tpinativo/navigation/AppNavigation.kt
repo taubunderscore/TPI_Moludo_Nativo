@@ -10,7 +10,7 @@ import com.catedra.tpinativo.ui.screens.DetalleHabitoScreen
 import com.catedra.tpinativo.ui.screens.HabitosScreen
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.catedra.tpinativo.ui.screens.LoginScreen
-
+import com.google.firebase.auth.FirebaseAuth
 // Creo un singleton para que no exista otra instancia igual
 object Rutas {
     const val LOGIN = "login"
@@ -22,11 +22,19 @@ object Rutas {
 @Composable
 fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
     val navController = rememberNavController()
+    // 1. LE PREGUNTAMOS A FIREBASE SI YA EXISTE UNA SESIÓN ACTIVA
+    // Si currentUser es distinto de null, significa que el usuario ya se logueó en el pasado.
+    val usuarioLogueado = FirebaseAuth.getInstance().currentUser != null
+
+    // 2. BIFURCACIÓN DINÁMICA DEL DESTINO INICIAL
+    // Si ya está logueado, arranca directo en la LISTA. Si no, va al LOGIN.
+    val destinoInicial = if (usuarioLogueado) Rutas.LISTA else Rutas.LOGIN
 
     NavHost(
         navController = navController,
-        startDestination = Rutas.LOGIN
-    ) {
+        startDestination = destinoInicial
+        ){
+
         // Pantalla de Login
         composable(Rutas.LOGIN) {
             LoginScreen(
