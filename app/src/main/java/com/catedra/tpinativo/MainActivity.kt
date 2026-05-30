@@ -13,6 +13,7 @@ import com.catedra.tpinativo.navigation.AppNavigation
 import com.catedra.tpinativo.data.repository.HabitosRepository
 import com.catedra.tpinativo.data.repository.LogrosRepository
 import com.catedra.tpinativo.domain.usecase.GestionarProgresoHabitoUseCase
+import com.catedra.tpinativo.domain.usecase.SuscribirHabitoUseCase
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.catedra.tpinativo.viewmodel.HabitosViewModelFactory
 import com.catedra.tpinativo.ui.theme.TPINativoTheme
@@ -26,20 +27,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge() // Mantiene el diseño moderno de borde a borde
 
-        // 🚀 1. INSTANCIAMOS LA INFRAESTRUCTURA DE NUESTRA ARQUITECTURA LIMPIA
+        // 1. Repositorios
         val habitosRepo = HabitosRepository()
         val logrosRepo = LogrosRepository()
 
-        // 🚀 2. ARMAMOS EL CASO DE USO (EL CEREBRO DE LA LÓGICA DE NEGOCIO)
+// 2. Casos de Uso (Capa de Dominio)
         val gestionarProgresoUseCase = GestionarProgresoHabitoUseCase(habitosRepo, logrosRepo)
+        val suscribirUseCase = SuscribirHabitoUseCase(habitosRepo) // 🚀 El nuevo
 
-        // 🚀 3. INICIALIZAMOS EL VIEWMODEL PASÁNDOLE NUESTRO FACTORY FABRICADOR
-        // Esto le enseña a Android a crear el ViewModel pasándole los parámetros requeridos
+// 3. Fábrica inyectando todo
         habitosViewModel = ViewModelProvider(
             this,
-            HabitosViewModelFactory(habitosRepo, gestionarProgresoUseCase)
+            HabitosViewModelFactory(
+                habitosRepo,
+                gestionarProgresoUseCase,
+                suscribirUseCase // 🚀 Pasamos el nuevo caso de uso
+            )
         )[HabitosViewModel::class.java]
-
         setContent {
             TPINativoTheme {
                 // Surface es tu contenedor visual principal
