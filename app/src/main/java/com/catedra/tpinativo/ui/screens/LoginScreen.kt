@@ -23,7 +23,8 @@ fun LoginScreenPreview() {
         LoginContent(
             errorMensaje = "Contraseña incorrecta (Ejemplo de Preview)",
             isLoadingInit = false,
-            onIniciarSesionClick = { _, _ -> }
+            onIniciarSesionClick = { _, _ -> },
+            onIrARegistro = {}
         )
     }
 }
@@ -34,26 +35,35 @@ fun LoginScreenPreview() {
 @Composable
 fun LoginScreen(
     viewModel: HabitosViewModel,
-    onLoginExitoso: () -> Unit
+    onLoginExitoso: () -> Unit,
+    onIrARegistro: () -> Unit
 ) {
-    // Si tu nuevo HabitosViewModel ya no tiene estas propiedades de login,
-    // usamos estados locales temporales para que no te rompa la compilación del TP.
     var errorMensaje by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Este contenedor solo actúa de puente
     LoginContent(
         errorMensaje = errorMensaje,
         isLoadingInit = isLoading,
         onIniciarSesionClick = { email, password ->
             isLoading = true
-
-            // Forzamos un login exitoso directo para el MVP si estás probando,
-            // o si volviste a meter la función en el ViewModel, le declaramos el tipo (Boolean)
-            // para ganarle al error del compilador:
-            isLoading = false
-            onLoginExitoso()
-        }
+            errorMensaje = null
+            com.google.firebase.auth.FirebaseAuth.getInstance()
+                .signInWithEmailAndPassword(email, password)
+                .addOnSuccessListener {
+                    isLoading = false
+                    onLoginExitoso()
+                }
+                .addOnFailureListener { exception ->
+                    isLoading = false
+                    errorMensaje = when {
+                        exception.message?.contains("no user record") == true -> "No existe una cuenta con ese email"
+                        exception.message?.contains("password is invalid") == true -> "Contraseña incorrecta"
+                        exception.message?.contains("badly formatted") == true -> "El formato del email no es válido"
+                        else -> "Error al iniciar sesión: ${exception.message}"
+                    }
+                }
+        },
+        onIrARegistro = onIrARegistro
     )
 }
 
@@ -65,7 +75,8 @@ fun LoginScreen(
 fun LoginContent(
     errorMensaje: String?,
     isLoadingInit: Boolean,
-    onIniciarSesionClick: (String, String) -> Unit
+    onIniciarSesionClick: (String, String) -> Unit,
+    onIrARegistro: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -129,6 +140,11 @@ fun LoginContent(
             } else {
                 Text("Iniciar Sesión", style = MaterialTheme.typography.titleMedium)
             }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        TextButton(onClick = onIrARegistro) {
+            Text("¿No tenés cuenta? Registrate")
         }
     }
 }

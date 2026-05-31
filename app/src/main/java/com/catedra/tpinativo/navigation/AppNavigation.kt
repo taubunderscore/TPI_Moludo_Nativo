@@ -1,4 +1,5 @@
 package com.catedra.tpinativo.navigation
+
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -22,10 +23,12 @@ import com.catedra.tpinativo.ui.screens.LoginScreen
 import com.catedra.tpinativo.ui.screens.LogrosScreen
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.catedra.tpinativo.ui.screens.RegisterScreen
 
 // 📌 Definición de rutas fijas
 object Rutas {
     const val LOGIN = "login"
+    const val REGISTRO = "registro"
     const val HOME = "home"       // Tu pantalla actual de tildar hábitos
     const val DESCUBRIR = "descubrir" // El catálogo por categorías
     const val LOGROS = "logros"     // Tus medallas ganadas
@@ -35,9 +38,9 @@ object Rutas {
 
 //  Estructura para los botones de la barra inferior
 data class ItemBarraNavegacion(
-val ruta: String,
-val titulo: String,
-val icono: ImageVector
+    val ruta: String,
+    val titulo: String,
+    val icono: ImageVector
 )
 
 @Composable
@@ -59,7 +62,10 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
     Scaffold(
         bottomBar = {
             // 🚨 SÓLO MOSTRAMOS LA BARRA SI EL USUARIO NO ESTÁ EN EL LOGIN
-            if (rutaActual != Rutas.LOGIN && rutaActual?.startsWith("detalle") == false) {
+            if (rutaActual != Rutas.LOGIN && rutaActual != Rutas.REGISTRO && rutaActual?.startsWith(
+                    "detalle"
+                ) == false
+            ) {
                 NavigationBar {
                     itemsNavegacion.forEach { item ->
                         NavigationBarItem(
@@ -70,7 +76,9 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
                                 if (rutaActual != item.ruta) {
                                     navController.navigate(item.ruta) {
                                         // Evita acumular pantallas repetidas en el historial
-                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            saveState = true
+                                        }
                                         launchSingleTop = true
                                         restoreState = true
                                     }
@@ -95,7 +103,21 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
                         navController.navigate(Rutas.HOME) {
                             popUpTo(Rutas.LOGIN) { inclusive = true }
                         }
+                    },
+                    onIrARegistro = {
+                        navController.navigate(Rutas.REGISTRO)
                     }
+                )
+            }
+
+            composable(Rutas.REGISTRO) {
+                RegisterScreen(
+                    onRegistroExitoso = {
+                        navController.navigate(Rutas.HOME) {
+                            popUpTo(Rutas.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onVolver = { navController.popBackStack() }
                 )
             }
 
