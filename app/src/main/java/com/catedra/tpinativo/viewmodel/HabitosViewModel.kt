@@ -18,12 +18,59 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 // Representa el estado de la pantalla principal (Home)
+// 📍 Buscá esto en tu HabitosViewModel.kt y agregale los métodos:
 data class HabitosUiState(
     val habitos: List<HabitoSuscrito> = emptyList(),
     val cargando: Boolean = false,
     val error: String? = null,
-    val ultimoDesafioLogrado: String? = null
-)
+    val ultimoDesafioLogrado: String? = null,
+    val mensajeInspirador: String? = null // El que sumamos para el cartel motivacional
+) {
+    /**
+     * 🚀 Para el botón de Desafíos (Combos)
+     */
+    fun obtenerEstadoDesafio(desafioId: String): Pair<String, Boolean> {
+        val hoyStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+
+        // Buscamos si existe el registro del desafío
+        val registroDesafio = habitos.find { it.id.contains(desafioId) && it.categoria == "DESAFIO" }
+
+        if (registroDesafio == null) {
+            return Pair("Unirse", false) // No está suscrito -> Botón activo "Unirse"
+        }
+
+        // Si ya existe, miramos si se completó hoy
+        val yaCompletoTodoHoy = registroDesafio.fechasCumplidas.contains(hoyStr)
+
+        return if (yaCompletoTodoHoy) {
+            Pair("¡Cumplido hoy! 🎉", false) // Re-habilitado con festejo
+        } else {
+            Pair("Ya estás suscripto", true) // Grisado / Deshabilitado
+        }
+    }
+
+    /**
+     * 🚀 Para el botón de Hábitos Individuales
+     */
+    fun obtenerEstadoHabitoIndividual(plantillaId: String): Pair<String, Boolean> {
+        val hoyStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+
+        // Buscamos si el hábito individual está en el Home
+        val habitoActivo = habitos.find { it.plantillaId == plantillaId }
+
+        if (habitoActivo == null) {
+            return Pair("Suscribir", false) // No está suscrito -> Botón activo
+        }
+
+        val yaLoHizoHoy = habitoActivo.fechasCumplidas.contains(hoyStr)
+
+        return if (yaLoHizoHoy) {
+            Pair("¡Completado! 💪", false)
+        } else {
+            Pair("Ya estás suscripto", true) // Grisado / Deshabilitado
+        }
+    }
+}
 
 class HabitosViewModel(
     private val habitosRepository: HabitosRepository,
@@ -95,6 +142,7 @@ class HabitosViewModel(
         viewModelScope.launch {
             try {
                 suscribirHabitoUseCase(userId, plantilla)
+                _uiState.update { it.copy(mensajeInspirador = "¡Hábito activado! Pasito a pasito se llega lejos 🎯") }
                 cargarHabitos(userId)
             } catch (e: Exception) {
                 // Error pasivo por si falla la red
@@ -138,8 +186,13 @@ class HabitosViewModel(
             suscribirseADesafioUseCase(userId, desafio)
 
             // 🔄 CORREGIDO: Llamamos a cargarHabitos que es el nombre real de tu método de arriba
+            _uiState.update { it.copy(mensajeInspirador = "¡Te sumaste al desafío! ¡Dale con fuerza que vos podés! ️🔥") }
             cargarHabitos(userId)
         }
+    }
+    // 3. Nueva función para limpiar el mensaje (igual al resetearAlertaDesafio)
+    fun resetearMensajeInspirador() {
+        _uiState.update { it.copy(mensajeInspirador = null) }
     }
 }
 
