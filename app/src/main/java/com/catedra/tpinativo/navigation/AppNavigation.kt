@@ -1,4 +1,5 @@
 package com.catedra.tpinativo.navigation
+
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -20,25 +21,31 @@ import com.catedra.tpinativo.ui.screens.DetalleHabitoScreen
 import com.catedra.tpinativo.ui.screens.HabitosScreen
 import com.catedra.tpinativo.ui.screens.LoginScreen
 import com.catedra.tpinativo.ui.screens.LogrosScreen
+import com.catedra.tpinativo.ui.screens.RegisterScreen
+import com.catedra.tpinativo.ui.screens.SplashScreen
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.google.firebase.auth.FirebaseAuth
 
-// 📌 Definición de rutas fijas
+// ── Rutas ─────────────────────────────────────────────────────────
 object Rutas {
-    const val LOGIN = "login"
-    const val HOME = "home"       // Tu pantalla actual de tildar hábitos
-    const val DESCUBRIR = "descubrir" // El catálogo por categorías
-    const val LOGROS = "logros"     // Tus medallas ganadas
-    const val DETALLE = "detalle/{habitoId}"
+    const val SPLASH    = "splash"
+    const val LOGIN     = "login"
+    const val REGISTRO  = "registro"
+    const val HOME      = "home"
+    const val DESCUBRIR = "descubrir"
+    const val LOGROS    = "logros"
+    const val DETALLE   = "detalle/{habitoId}"
     fun detalle(id: String) = "detalle/$id"
 }
 
-//  Estructura para los botones de la barra inferior
 data class ItemBarraNavegacion(
-val ruta: String,
-val titulo: String,
-val icono: ImageVector
+    val ruta: String,
+    val titulo: String,
+    val icono: ImageVector
 )
+
+// Rutas que NO muestran la barra inferior
+private val RUTAS_SIN_BARRA = setOf(Rutas.SPLASH, Rutas.LOGIN, Rutas.REGISTRO)
 
 @Composable
 fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
@@ -46,30 +53,28 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val rutaActual = navBackStackEntry?.destination?.route
 
-    val usuarioLogueado = FirebaseAuth.getInstance().currentUser != null
-    val destinoInicial = if (usuarioLogueado) Rutas.HOME else Rutas.LOGIN
-
-    // Lista de las 3 pestañas principales de la barra de abajo
     val itemsNavegacion = listOf(
-        ItemBarraNavegacion(Rutas.HOME, "Home", Icons.Default.Home),
+        ItemBarraNavegacion(Rutas.HOME,      "Home",      Icons.Default.Home),
         ItemBarraNavegacion(Rutas.DESCUBRIR, "Descubrir", Icons.Default.List),
-        ItemBarraNavegacion(Rutas.LOGROS, "Logros", Icons.Default.Star)
+        ItemBarraNavegacion(Rutas.LOGROS,    "Logros",    Icons.Default.Star)
     )
 
     Scaffold(
         bottomBar = {
-            // 🚨 SÓLO MOSTRAMOS LA BARRA SI EL USUARIO NO ESTÁ EN EL LOGIN
-            if (rutaActual != Rutas.LOGIN && rutaActual?.startsWith("detalle") == false) {
+            val mostrarBarra = rutaActual != null
+                && rutaActual !in RUTAS_SIN_BARRA
+                && !rutaActual.startsWith("detalle")
+
+            if (mostrarBarra) {
                 NavigationBar {
                     itemsNavegacion.forEach { item ->
                         NavigationBarItem(
-                            icon = { Icon(item.icono, contentDescription = item.titulo) },
-                            label = { Text(item.titulo) },
+                            icon    = { Icon(item.icono, contentDescription = item.titulo) },
+                            label   = { Text(item.titulo) },
                             selected = rutaActual == item.ruta,
                             onClick = {
                                 if (rutaActual != item.ruta) {
                                     navController.navigate(item.ruta) {
-                                        // Evita acumular pantallas repetidas en el historial
                                         popUpTo(navController.graph.startDestinationId) { saveState = true }
                                         launchSingleTop = true
                                         restoreState = true
@@ -83,61 +88,80 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
         }
     ) { innerPadding ->
         NavHost(
-            navController = navController,
-            startDestination = destinoInicial,
-            modifier = Modifier.padding(innerPadding) // Aplica el espacio de la barra inferior automáticamente
+            navController    = navController,
+            startDestination = Rutas.SPLASH,          // siempre arranca en el splash
+            modifier         = Modifier.padding(innerPadding)
         ) {
-            // 1. PANTALLA: LOGIN
-            composable(Rutas.LOGIN) {
-                LoginScreen(
-                    viewModel = viewModel,
-                    onLoginExitoso = {
-                        navController.navigate(Rutas.HOME) {
-                            popUpTo(Rutas.LOGIN) { inclusive = true }
+
+            // ── SPLASH ────────────────────────────────────────────
+            composable(Rutas.SPLASH) {
+                SplashScreen(
+                    onSplashTerminado = {
+                        val destino = if (FirebaseAuth.getInstance().currentUser != null)
+                            Rutas.HOME else Rutas.LOGIN
+                        navController.navigate(destino) {
+                            popUpTo(Rutas.SPLASH) { inclusive = true }
                         }
                     }
                 )
             }
 
-            // 2. PANTALLA: HOME (Tu lista actual con el buscador, filtrada por ti)
+            // ── LOGIN ─────────────────────────────────────────────
+            composable(Rutas.LOGIN) {
+                LoginScreen(
+                    viewModel      = viewModel,
+                    onLoginExitoso = {
+                        navController.navigate(Rutas.HOME) {
+                            popUpTo(Rutas.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onIrARegistro  = { navController.navigate(Rutas.REGISTRO) }
+                )
+            }
+
+            // ── REGISTRO ──────────────────────────────────────────
+            composable(Rutas.REGISTRO) {
+                RegisterScreen(
+                    onRegistroExitoso = {
+                        navController.navigate(Rutas.HOME) {
+                            popUpTo(Rutas.LOGIN) { inclusive = true }
+                        }
+                    },
+                    onVolver = { navController.popBackStack() }
+                )
+            }
+
+            // ── HOME ──────────────────────────────────────────────
             composable(Rutas.HOME) {
                 HabitosScreen(
-                    viewModel = viewModel,
-                    userId = userId,
+                    viewModel  = viewModel,
+                    userId     = userId,
                     onVerDetalle = { habitoId ->
                         navController.navigate(Rutas.detalle(habitoId))
                     }
                 )
             }
 
-            // 3. PANTALLA: DESCUBRIR (Catálogo por categorías)
+            // ── DESCUBRIR ─────────────────────────────────────────
             composable(Rutas.DESCUBRIR) {
                 DescubrirScreen(viewModel = viewModel, userId = userId)
             }
 
-            // 4. PANTALLA: LOGROS (Lista de medallas ganadas)
+            // ── LOGROS ────────────────────────────────────────────
             composable(Rutas.LOGROS) {
-                // TODO: Crearemos LogrosScreen.kt
-                Text("Pantalla de Logros 🏆 (Próximo paso)", modifier = Modifier.padding(16.dp))
+                LogrosScreen(viewModel = viewModel, userId = userId)
             }
 
-            // 5. PANTALLA: DETALLE
+            // ── DETALLE ───────────────────────────────────────────
             composable(
-                route = Rutas.DETALLE,
+                route     = Rutas.DETALLE,
                 arguments = listOf(navArgument("habitoId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val habitoId = backStackEntry.arguments?.getString("habitoId") ?: ""
                 DetalleHabitoScreen(
-                    habitoId = habitoId,
+                    habitoId  = habitoId,
                     viewModel = viewModel,
-                    onVolver = { navController.popBackStack() }
-                )
-            }
-            // 4. PANTALLA: LOGROS (Lista de medallas ganadas) - ¡CONECTADO CON ÉXITO!
-            composable(Rutas.LOGROS) {
-                LogrosScreen(
-                    viewModel = viewModel,
-                    userId = userId
+                    onVolver  = { navController.popBackStack() }
                 )
             }
         }

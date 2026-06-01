@@ -47,6 +47,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-messaging")
 
     // --- NAVEGACIÓN Y COMPOSE ---
     // Actualizamos a la 2.8.5 para que sea compatible con el nuevo compilador de Kotlin

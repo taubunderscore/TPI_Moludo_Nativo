@@ -12,11 +12,8 @@ import androidx.compose.ui.Modifier
 import com.catedra.tpinativo.navigation.AppNavigation
 import com.catedra.tpinativo.data.repository.HabitosRepository
 import com.catedra.tpinativo.data.repository.LogrosRepository
-import com.catedra.tpinativo.data.repository.DesafiosRepository // 🚀 IMPORTAMOS EL NUEVO REPO
 import com.catedra.tpinativo.domain.usecase.GestionarProgresoHabitoUseCase
 import com.catedra.tpinativo.domain.usecase.SuscribirHabitoUseCase
-import com.catedra.tpinativo.domain.usecase.ObtenerDesafiosCatalogoUseCase // 🚀 IMPORTAMOS EL CASO DE USO 1
-import com.catedra.tpinativo.domain.usecase.SuscribirseADesafioUseCase // 🚀 IMPORTAMOS EL CASO DE USO 2
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.catedra.tpinativo.viewmodel.HabitosViewModelFactory
 import com.catedra.tpinativo.ui.theme.TPINativoTheme
@@ -30,29 +27,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge() // Mantiene el diseño moderno de borde a borde
 
-        // 1. Instanciamos los Repositorios de la capa de datos
+        // 1. Repositorios
         val habitosRepo = HabitosRepository()
         val logrosRepo = LogrosRepository()
-        val desafiosRepo = DesafiosRepository() // 🚀 ¡Faltaba esta línea clave!
 
-        // 2. Instanciamos los Casos de Uso (Capa de Dominio) pasando sus dependencias
+// 2. Casos de Uso (Capa de Dominio)
         val gestionarProgresoUseCase = GestionarProgresoHabitoUseCase(habitosRepo, logrosRepo)
-        val suscribirUseCase = SuscribirHabitoUseCase(habitosRepo)
-        val obtenerDesafiosUseCase = ObtenerDesafiosCatalogoUseCase(desafiosRepo)
-        val suscribirseADesafioUseCase = SuscribirseADesafioUseCase(habitosRepo) // 🚀 Con un solo parámetro como tu constructor real
+        val suscribirUseCase = SuscribirHabitoUseCase(habitosRepo) // 🚀 El nuevo
 
-        // 3. Fábrica inyectando absolutamente todo de forma limpia
+// 3. Fábrica inyectando todo
         habitosViewModel = ViewModelProvider(
             this,
             HabitosViewModelFactory(
-                habitosRepository = habitosRepo,
-                gestionarProgresoHabitoUseCase = gestionarProgresoUseCase,
-                suscribirHabitoUseCase = suscribirUseCase,
-                obtenerDesafiosCatalogoUseCase = obtenerDesafiosUseCase, // 🚀 Reemplazamos el TODO()
-                suscribirseADesafioUseCase = suscribirseADesafioUseCase // 🚀 Reemplazamos el TODO()
+                habitosRepo,
+                gestionarProgresoUseCase,
+                suscribirUseCase // 🚀 Pasamos el nuevo caso de uso
             )
         )[HabitosViewModel::class.java]
-
         setContent {
             TPINativoTheme {
                 // Surface es tu contenedor visual principal
