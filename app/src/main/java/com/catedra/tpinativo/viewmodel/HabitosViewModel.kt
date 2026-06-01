@@ -2,12 +2,15 @@ package com.catedra.tpinativo.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.catedra.tpinativo.data.model.DesafioObjetivo
 import com.catedra.tpinativo.data.model.HabitoPlantilla
 import com.catedra.tpinativo.data.model.HabitoSuscrito
 import com.catedra.tpinativo.data.model.LogroUsuario
 import com.catedra.tpinativo.data.repository.HabitosRepository
 import com.catedra.tpinativo.domain.usecase.GestionarProgresoHabitoUseCase
+import com.catedra.tpinativo.domain.usecase.ObtenerDesafiosCatalogoUseCase
 import com.catedra.tpinativo.domain.usecase.SuscribirHabitoUseCase
+import com.catedra.tpinativo.domain.usecase.SuscribirseADesafioUseCase // 🚀 AGREGAMOS ESTA IMPORTACIÓN
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,14 +22,16 @@ data class HabitosUiState(
     val habitos: List<HabitoSuscrito> = emptyList(),
     val cargando: Boolean = false,
     val error: String? = null,
-    val ultimoDesafioLogrado: String? = null // Guarda el nombre del desafío si acaba de ganar uno
+    val ultimoDesafioLogrado: String? = null
 )
 
 class HabitosViewModel(
     private val habitosRepository: HabitosRepository,
     private val gestionarProgresoHabitoUseCase: GestionarProgresoHabitoUseCase,
-    // Recibimos el caso de uso para suscribirse
-    private val suscribirHabitoUseCase: SuscribirHabitoUseCase
+    private val suscribirHabitoUseCase: SuscribirHabitoUseCase,
+    // 🚀 INYECTAMOS LOS DOS CASOS DE USO NUEVOS EN EL CONSTRUCTOR:
+    private val obtenerDesafiosCatalogoUseCase: ObtenerDesafiosCatalogoUseCase,
+    private val suscribirseADesafioUseCase: SuscribirseADesafioUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HabitosUiState())
@@ -56,21 +61,18 @@ class HabitosViewModel(
         }
     }
 
-    // Se ejecuta al tocar el checkbox, delegando la lógica al caso de uso modular
+    // Se ejecuta al tocar el checkbox
     fun alternarEstadoHabito(habito: HabitoSuscrito) {
         viewModelScope.launch {
             try {
-                // 1. Ejecutamos el caso de uso (guarda en DB, calcula %, verifica meta)
                 val resultado = gestionarProgresoHabitoUseCase.ejecutar(habito)
 
-                // 2. Actualizamos la lista local en memoria para que la UI cambie al instante
                 _uiState.update { estadoActual ->
                     val listaActualizada = estadoActual.habitos.map { item ->
                         if (item.id == resultado.habitoActualizado.id) resultado.habitoActualizado else item
                     }
                     estadoActual.copy(
                         habitos = listaActualizada,
-                        // Si se desbloqueó un desafío, guardamos el nombre para avisarle a la UI
                         ultimoDesafioLogrado = if (resultado.desafioDesbloqueado) resultado.nombreDesafio else null
                     )
                 }
@@ -93,7 +95,6 @@ class HabitosViewModel(
         viewModelScope.launch {
             try {
                 suscribirHabitoUseCase(userId, plantilla)
-                // Refrescamos automáticamente la lista del Home
                 cargarHabitos(userId)
             } catch (e: Exception) {
                 // Error pasivo por si falla la red
@@ -117,14 +118,40 @@ class HabitosViewModel(
     fun resetearAlertaDesafio() {
         _uiState.update { it.copy(ultimoDesafioLogrado = null) }
     }
-} // ⬅️ ACÁ CIERRA LA CLASE PRINCIPAL HABITOSVIEWMODEL
+
+    // 1. Declarar los flujos de estado para este nuevo feature del challenge
+    private val _desafiosCatalogo = MutableStateFlow<List<DesafioObjetivo>>(emptyList())
+    val desafiosCatalogo: StateFlow<List<DesafioObjetivo>> = _desafiosCatalogo.asStateFlow()
+
+    // 2. Función para cargar el catálogo de desafíos
+    fun cargarDesafios() {
+        viewModelScope.launch {
+            // Ahora sí te toma la variable porque está declarada arriba en el constructor
+            val lista = obtenerDesafiosCatalogoUseCase()
+            _desafiosCatalogo.value = lista
+        }
+    }
+
+    // 3. Función para suscribirse (el click de "Unirse")
+    fun suscribirseADesafio(userId: String, desafio: DesafioObjetivo) {
+        viewModelScope.launch {
+            suscribirseADesafioUseCase(userId, desafio)
+
+            // 🔄 CORREGIDO: Llamamos a cargarHabitos que es el nombre real de tu método de arriba
+            cargarHabitos(userId)
+        }
+    }
+}
 
 // ==========================================
-// 🚀 LA FÁBRICA QUEDA BIEN AFUERA DE LA CLASE:
+// 🚀 LA FÁBRICA ACTUALIZADA PARA REPARTIR LOS NUEVOS CASOS DE USO:
 class HabitosViewModelFactory(
     private val habitosRepository: HabitosRepository,
     private val gestionarProgresoHabitoUseCase: GestionarProgresoHabitoUseCase,
-    private val suscribirHabitoUseCase: SuscribirHabitoUseCase
+    private val suscribirHabitoUseCase: SuscribirHabitoUseCase,
+    // Agregar acá también las dependencias para la Factory
+    private val obtenerDesafiosCatalogoUseCase: ObtenerDesafiosCatalogoUseCase,
+    private val suscribirseADesafioUseCase: SuscribirseADesafioUseCase
 ) : androidx.lifecycle.ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -133,7 +160,9 @@ class HabitosViewModelFactory(
             return HabitosViewModel(
                 habitosRepository,
                 gestionarProgresoHabitoUseCase,
-                suscribirHabitoUseCase
+                suscribirHabitoUseCase,
+                obtenerDesafiosCatalogoUseCase, // 🚀 Pasamos el caso de uso
+                suscribirseADesafioUseCase     // 🚀 Pasamos el caso de uso combo
             ) as T
         }
         throw IllegalArgumentException("Clase ViewModel desconocida")

@@ -4,6 +4,7 @@ data class DesafioObjetivo(
     val id: String = "",
     val plantillaId: String = "", // Atado al ID de HabitoPlantilla
     val nombreDesafio: String = "",
-    val descripcion: String = "",
-    val metaObjetivo: Int = 0 // Cantidad de tildes requeridas (ej: 30)
+    val metaObjetivo: Int = 0, // Cantidad de tildes requeridas (ej: 30)
+    val habitosRequeridos: List<String> = emptyList(),
+    val descripcion: String = "" //  Agregamos esta línea y Firebase hace el resto
 )

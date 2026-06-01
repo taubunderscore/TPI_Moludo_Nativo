@@ -24,14 +24,16 @@ class HabitosRepository {
         }
     }
 
-    // 2. Trae la lista de hábitos a los que está suscrito el usuario de Varela
+    // 2. Trae la lista de hábitos del usuario (FILTRANDO para ignorar el registro de desafío)
     suspend fun obtenerSuscripcionesUsuario(userId: String): List<HabitoSuscrito> {
         return try {
             db.collection("usuarios_suscripciones")
                 .whereEqualTo("userId", userId)
                 .get()
                 .await()
-                .toObjects(HabitoSuscrito::class.java)
+                .documents
+                .filter { doc -> !doc.contains("tipo") } // 🚀 FILTRO CLAVE: Si tiene el campo "tipo" es un desafío, lo dejamos afuera del Home
+                .mapNotNull { doc -> doc.toObject(HabitoSuscrito::class.java) }
         } catch (e: Exception) {
             emptyList()
         }
@@ -87,9 +89,9 @@ class HabitosRepository {
         }
     }
 
-    // 5. Crea un nuevo registro en las suscripciones del usuario en caliente
-    suspend fun suscribirUsuarioAHabito(userId: String, plantilla: HabitoPlantilla) {
-        try {
+    // 5. Crea un nuevo registro en las suscripciones del usuario y devuelve su ID físico
+    suspend fun suscribirUsuarioAHabito(userId: String, plantilla: HabitoPlantilla): String {
+        return try {
             val nuevaSubRef = db.collection("usuarios_suscripciones").document()
 
             val nuevaSuscripcion = hashMapOf(
@@ -98,13 +100,52 @@ class HabitosRepository {
                 "userId" to userId,
                 "nombre" to plantilla.nombre,
                 "categoria" to plantilla.categoria,
-                "frecuencia" to plantilla.frecuencia.name, // 🚀 Guardamos el String puro del Enum
+                "frecuencia" to plantilla.frecuencia.name, // Guardamos el String puro del Enum
                 "fechasCumplidas" to emptyList<String>()
             )
 
             nuevaSubRef.set(nuevaSuscripcion).await()
+
+            // 🚀 CAMINO EXITOSO: Devolvemos el ID físico recién generado
+            nuevaSubRef.id
+
         } catch (e: Exception) {
-            // Manejo de error por si falla la inserción
+            // 🚀 CAMINO DE FALLO: Si explota, devolvemos un string vacío para no romper la app
+            android.util.Log.e("DEBUG_REPO", "Error al suscribir hábito: ${e.localizedMessage}")
+            ""
+        }
+    }
+
+    /**
+     * Busca una plantilla específica por su ID único en la colección habitos_plantillas.
+     * Sirve para clonar los datos del hábito al suscribirse desde un desafío.
+     */
+    suspend fun obtenerPlantillaPorId(plantillaId: String): HabitoPlantilla? {
+        return try {
+            // Buscamos el documento cuyo campo interno "id" sea igual al que pasamos
+            val snapshot = db.collection("habitos_plantillas")
+                .whereEqualTo("id", plantillaId) // 🚀 Busca por el campo interno, no por el ID del doc
+                .get()
+                .await()
+
+            if (!snapshot.isEmpty) {
+                val document = snapshot.documents.first()
+                HabitoPlantilla(
+                    id = document.getString("id") ?: "",
+                    nombre = document.getString("nombre") ?: "",
+                    categoria = document.getString("categoria") ?: "",
+                    grupos = document.get("grupos") as? List<String> ?: emptyList(),
+                    frecuencia = try {
+                        TipoFrecuencia.valueOf(document.getString("frecuencia") ?: "DIARIO")
+                    } catch (e: Exception) { TipoFrecuencia.DIARIO },
+                    diasConfigurados = document.get("diasConfigurados") as? List<Int> ?: emptyList()
+                )
+            } else {
+                android.util.Log.w("DEBUG_DESAFIO", "No se encontró ningún documento con el campo id = $plantillaId")
+                null
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 }
