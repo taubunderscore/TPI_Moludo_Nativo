@@ -156,7 +156,7 @@ fun HabitosContent(
     }
 }
 
-// ✅ Card extraída como composable propio — más limpio y reutilizable
+//  Card extraída como composable propio — para poder como en el lab 1 web reutilizable
 @Composable
 fun HabitoCard(
     habito: HabitoSuscrito,
@@ -188,7 +188,7 @@ fun HabitoCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // ✅ Badge del desafío — solo aparece si el hábito pertenece a uno
+                // insignia del desafío — solo aparece si el hábito pertenece a uno
                 if (nombreDesafioAsociado != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Surface(

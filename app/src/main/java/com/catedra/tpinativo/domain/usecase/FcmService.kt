@@ -15,7 +15,6 @@ class FcmService : FirebaseMessagingService() {
     private fun showNotificacion(message: RemoteMessage) {
         val notificationManager = getSystemService(NotificationManager::class.java)
 
-        // 🚀 CORREGIDO: Ahora lee la constante local del companion object de esta misma clase
         val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(message.notification?.title)
             .setContentText(message.notification?.body)
@@ -26,7 +25,6 @@ class FcmService : FirebaseMessagingService() {
         notificationManager.notify(1, notification)
     }
 
-    // 🎯 CONSTANTE LOCAL: Así el servicio no depende de que la MainActivity esté modificada o no
     companion object {
         const val NOTIFICATION_CHANNEL_ID = "notificacion_fcm"
     }

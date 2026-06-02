@@ -11,6 +11,6 @@ data class HabitoSuscrito(
     val fechasCumplidas: List<String> = emptyList(),
     val esPersonalizado: Boolean = false,
     val horaRecordatorio: String? = null,
-    // ✅ null = suscripto individualmente, valor = viene de un desafío
+    //  null = suscripto individualmente, valor = viene de un desafío
     val desafioId: String? = null
 )

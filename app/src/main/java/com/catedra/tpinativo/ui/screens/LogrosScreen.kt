@@ -15,7 +15,7 @@ import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-// ✅ FIX 5: Función pura que calcula la racha actual desde fechasCumplidas
+//  Función pura que calcula la racha actual desde fechasCumplidas
 // No guarda nada en Firestore — solo lee y cuenta días consecutivos hacia atrás
 fun calcularRachaActual(fechasCumplidas: List<String>): Int {
     if (fechasCumplidas.isEmpty()) return 0
