@@ -11,20 +11,21 @@ import java.time.format.DateTimeFormatter
 class HabitosRepository {
     private val db = FirebaseFirestore.getInstance()
 
-    // 1. Trae las plantillas globales filtradas por grupo (desafios, moda, etc)
+    // 1. Plantillas globales filtradas por grupo
     suspend fun obtenerPlantillasPorGrupo(grupo: String): List<HabitoPlantilla> {
         return try {
             db.collection("habitos_plantillas")
                 .whereArrayContains("grupos", grupo)
                 .get()
                 .await()
-                .toObjects(HabitoPlantilla::class.java)
+                .documents
+                .map { doc -> doc.toHabitoPlantilla() } // ✅ extensión reutilizable
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    // 2. Trae la lista de hábitos del usuario (FILTRANDO para ignorar el registro de desafío)
+    // 2. Hábitos del usuario (sin registros de desafíos)
     suspend fun obtenerSuscripcionesUsuario(userId: String): List<HabitoSuscrito> {
         return try {
             db.collection("usuarios_suscripciones")
@@ -32,23 +33,20 @@ class HabitosRepository {
                 .get()
                 .await()
                 .documents
-                .filter { doc -> !doc.contains("tipo") } // 🚀 FILTRO CLAVE: Si tiene el campo "tipo" es un desafío, lo dejamos afuera del Home
+                .filter { doc -> !doc.contains("tipo") }
                 .mapNotNull { doc -> doc.toObject(HabitoSuscrito::class.java) }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    // 3. LA CLAVE: Agrega o quita la fecha de hoy en el historial de Firestore
+    // 3. Alterna la fecha de hoy en el historial
     suspend fun alternarFechaCumplimiento(habito: HabitoSuscrito): List<String> {
         val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
         val nuevasFechas = habito.fechasCumplidas.toMutableList()
 
-        if (nuevasFechas.contains(hoy)) {
-            nuevasFechas.remove(hoy) // Destilda si ya existía
-        } else {
-            nuevasFechas.add(hoy) // Tilda si es la primera vez en el día
-        }
+        if (nuevasFechas.contains(hoy)) nuevasFechas.remove(hoy)
+        else nuevasFechas.add(hoy)
 
         try {
             db.collection("usuarios_suscripciones")
@@ -56,96 +54,112 @@ class HabitosRepository {
                 .update("fechasCumplidas", nuevasFechas)
                 .await()
         } catch (e: Exception) {
-            // Manejo de error si se cae la red
+            android.util.Log.e("HabitosRepo", "Error alternando fecha: ${e.localizedMessage}")
         }
 
-        return nuevasFechas // Devolvemos la lista mutada para los cálculos del Caso de Uso
+        return nuevasFechas
     }
 
-    // 4. Trae las plantillas del catálogo global según la categoría (CONVERSIÓN SEGURA)
+    // 4. Plantillas del catálogo por categoría
     suspend fun obtenerPlantillasPorCategoria(categoria: String): List<HabitoPlantilla> {
         return try {
-            val snapshot = db.collection("habitos_plantillas")
+            db.collection("habitos_plantillas")
                 .whereEqualTo("categoria", categoria)
                 .get()
                 .await()
-
-            snapshot.documents.map { doc ->
-                val frecuenciaTexto = doc.getString("frecuencia") ?: "DIARIO"
-
-                HabitoPlantilla(
-                    id = doc.id,
-                    nombre = doc.getString("nombre") ?: "",
-                    categoria = doc.getString("categoria") ?: "",
-                    frecuencia = try {
-                        TipoFrecuencia.valueOf(frecuenciaTexto.uppercase())
-                    } catch (e: Exception) {
-                        TipoFrecuencia.DIARIO
-                    }
-                )
-            }
+                .documents
+                .map { doc -> doc.toHabitoPlantilla() } // ✅ misma extensión
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    // 5. Crea un nuevo registro en las suscripciones del usuario y devuelve su ID físico
-    suspend fun suscribirUsuarioAHabito(userId: String, plantilla: HabitoPlantilla): String {
+    // 5. Suscribe al usuario a un hábito y devuelve el ID físico generado
+    suspend fun suscribirUsuarioAHabito(
+        userId: String,
+        plantilla: HabitoPlantilla,
+        desafioId: String? = null  // ✅ null = individual, valor = viene de desafío
+    ): String {
         return try {
             val nuevaSubRef = db.collection("usuarios_suscripciones").document()
-
             val nuevaSuscripcion = hashMapOf(
-                "id" to nuevaSubRef.id,
-                "plantillaId" to plantilla.id,
-                "userId" to userId,
-                "nombre" to plantilla.nombre,
-                "categoria" to plantilla.categoria,
-                "frecuencia" to plantilla.frecuencia.name, // Guardamos el String puro del Enum
+                "id"             to nuevaSubRef.id,
+                "plantillaId"    to plantilla.id,
+                "userId"         to userId,
+                "nombre"         to plantilla.nombre,
+                "categoria"      to plantilla.categoria,
+                "frecuencia"     to plantilla.frecuencia.name,
                 "fechasCumplidas" to emptyList<String>()
             )
 
+            // ✅ Solo agregamos desafioId si viene de un desafío
+            if (desafioId != null) {
+                nuevaSuscripcion["desafioId"] = desafioId
+            }
+
             nuevaSubRef.set(nuevaSuscripcion).await()
-
-            // 🚀 CAMINO EXITOSO: Devolvemos el ID físico recién generado
             nuevaSubRef.id
-
         } catch (e: Exception) {
-            // 🚀 CAMINO DE FALLO: Si explota, devolvemos un string vacío para no romper la app
-            android.util.Log.e("DEBUG_REPO", "Error al suscribir hábito: ${e.localizedMessage}")
+            android.util.Log.e("HabitosRepo", "Error suscribiendo: ${e.localizedMessage}")
             ""
         }
     }
 
-    /**
-     * Busca una plantilla específica por su ID único en la colección habitos_plantillas.
-     * Sirve para clonar los datos del hábito al suscribirse desde un desafío.
-     */
+    // 6. ✅ Acceso directo por ID de documento — sin campo "id" en Firestore
     suspend fun obtenerPlantillaPorId(plantillaId: String): HabitoPlantilla? {
         return try {
-            // Buscamos el documento cuyo campo interno "id" sea igual al que pasamos
-            val snapshot = db.collection("habitos_plantillas")
-                .whereEqualTo("id", plantillaId) // 🚀 Busca por el campo interno, no por el ID del doc
+            val doc = db.collection("habitos_plantillas")
+                .document(plantillaId) // ✅ acceso directo O(1)
                 .get()
                 .await()
 
-            if (!snapshot.isEmpty) {
-                val document = snapshot.documents.first()
-                HabitoPlantilla(
-                    id = document.getString("id") ?: "",
-                    nombre = document.getString("nombre") ?: "",
-                    categoria = document.getString("categoria") ?: "",
-                    grupos = document.get("grupos") as? List<String> ?: emptyList(),
-                    frecuencia = try {
-                        TipoFrecuencia.valueOf(document.getString("frecuencia") ?: "DIARIO")
-                    } catch (e: Exception) { TipoFrecuencia.DIARIO },
-                    diasConfigurados = document.get("diasConfigurados") as? List<Int> ?: emptyList()
-                )
-            } else {
-                android.util.Log.w("DEBUG_DESAFIO", "No se encontró ningún documento con el campo id = $plantillaId")
+            if (doc.exists()) doc.toHabitoPlantilla()
+            else {
+                android.util.Log.w("HabitosRepo", "No se encontró plantilla id=$plantillaId")
                 null
             }
         } catch (e: Exception) {
+            android.util.Log.e("HabitosRepo", "Error: ${e.localizedMessage}")
             null
         }
     }
+    // Elimina una suscripción individual por ID de documento
+    suspend fun eliminarSuscripcion(habitoId: String) {
+        try {
+            db.collection("usuarios_suscripciones")
+                .document(habitoId)
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            android.util.Log.e("HabitosRepo", "Error eliminando suscripción: ${e.localizedMessage}")
+        }
+    }
+
+    // Elimina el registro del desafío de usuarios_suscripciones
+    suspend fun eliminarSuscripcionDesafio(userId: String, desafioId: String) {
+        try {
+            db.collection("usuarios_suscripciones")
+                .document("${userId}_${desafioId}")
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            android.util.Log.e("HabitosRepo", "Error eliminando desafío: ${e.localizedMessage}")
+        }
+    }
+}
+
+// ✅ Extensión privada — mapea doc → HabitoPlantilla usando doc.id
+// Centraliza el mapeo en un solo lugar, sin duplicar código
+private fun com.google.firebase.firestore.DocumentSnapshot.toHabitoPlantilla(): HabitoPlantilla {
+    val frecuenciaTexto = getString("frecuencia") ?: "DIARIO"
+    return HabitoPlantilla(
+        id       = this.id, // ✅ doc.id — no necesita campo "id" en Firestore
+        nombre   = getString("nombre") ?: "",
+        categoria = getString("categoria") ?: "",
+        grupos   = get("grupos") as? List<String> ?: emptyList(),
+        frecuencia = try {
+            TipoFrecuencia.valueOf(frecuenciaTexto.uppercase())
+        } catch (e: Exception) { TipoFrecuencia.DIARIO },
+        diasConfigurados = get("diasConfigurados") as? List<Int> ?: emptyList()
+    )
 }
