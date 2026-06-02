@@ -136,7 +136,22 @@ class HabitosViewModel(
             _plantillasCatalogo.value = lista
         }
     }
+    // Carga todas las categorías y las acumula en _plantillasCatalogo
+    // Se usa en la pestaña Desafíos para resolver los nombres de los hábitos asociados
+    fun cargarTodasLasPlantillas() {
+        viewModelScope.launch {
+            val todasLasCategorias = listOf("Físico", "Estudio", "Salud", "Productividad")
+            val acumuladas = mutableListOf<HabitoPlantilla>()
 
+            todasLasCategorias.forEach { categoria ->
+                val lista = habitosRepository.obtenerPlantillasPorCategoria(categoria)
+                acumuladas.addAll(lista)
+            }
+
+            // Reemplaza con la lista completa de todas las categorías
+            _plantillasCatalogo.value = acumuladas
+        }
+    }
     // Ejecuta la suscripción mediante su Caso de Uso y refresca el Home
     fun suscribirseAHabito(userId: String, plantilla: HabitoPlantilla) {
         viewModelScope.launch {
@@ -194,6 +209,40 @@ class HabitosViewModel(
     fun resetearMensajeInspirador() {
         _uiState.update { it.copy(mensajeInspirador = null) }
     }
+    // Baja simple — hábito individual sin desafío
+    fun darDeBajaHabito(habitoId: String, userId: String) {
+        viewModelScope.launch {
+            try {
+                habitosRepository.eliminarSuscripcion(habitoId)
+                cargarHabitos(userId)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "No se pudo dar de baja el hábito") }
+            }
+        }
+    }
+
+    // Baja en cascada — elimina todos los hábitos hijos + el registro del desafío
+    fun darDeBajaDesafioCompleto(
+        desafio: DesafioObjetivo,
+        habitosHijos: List<HabitoSuscrito>,
+        userId: String
+    ) {
+        viewModelScope.launch {
+            try {
+                // 1. Eliminamos cada hábito hijo
+                habitosHijos.forEach { habito ->
+                    habitosRepository.eliminarSuscripcion(habito.id)
+                }
+                // 2. Eliminamos el registro del desafío
+                habitosRepository.eliminarSuscripcionDesafio(userId, desafio.id)
+                // 3. Refrescamos
+                cargarHabitos(userId)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "No se pudo dar de baja el desafío") }
+            }
+        }
+    }
+
 }
 
 // ==========================================

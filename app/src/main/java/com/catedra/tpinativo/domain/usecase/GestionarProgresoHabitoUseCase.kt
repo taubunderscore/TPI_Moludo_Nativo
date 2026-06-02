@@ -1,5 +1,6 @@
 package com.catedra.tpinativo.domain.usecase
 
+import com.catedra.tpinativo.data.model.DesafioObjetivo
 import com.catedra.tpinativo.data.model.HabitoSuscrito
 import com.catedra.tpinativo.data.repository.HabitosRepository
 import com.catedra.tpinativo.data.repository.LogrosRepository
@@ -9,7 +10,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Estructura de respuesta para el ViewModel
 data class ResultadoProgreso(
     val habitoActualizado: HabitoSuscrito,
     val porcentajeAvance: Int = 0,
@@ -32,25 +32,20 @@ class GestionarProgresoHabitoUseCase(
             return ResultadoProgreso(habitoActualizado = habitoActualizado)
         }
 
-        // 🔍 LOG 1: Entrada general
         android.util.Log.d("DEBUG_COMBO", "1. Gatillado por hábito: ${habito.nombre} (plantillaId: ${habito.plantillaId})")
 
-        // Buscamos en el catálogo el desafío que contiene este hábito
         val desafioSnapshot = db.collection("desafios_objetivos")
             .whereArrayContains("habitosRequeridos", habito.plantillaId)
             .get()
             .await()
 
         if (desafioSnapshot.isEmpty) {
-            android.util.Log.w("DEBUG_COMBO", "🛑 Freno: Este hábito no pertenece a ningún desafío en la DB")
+            android.util.Log.w("DEBUG_COMBO", "Este hábito no pertenece a ningún desafío en la DB")
             return ResultadoProgreso(habitoActualizado = habitoActualizado)
         }
 
-        // 🛠️ RECONSTRUIMOS EL OBJETO DESAFÍO ORIGINAL
         val docDesafio = desafioSnapshot.documents.first()
-
-        // Sacamos los datos limpios de la DB
-        val desafioId = docDesafio.getString("id") ?: docDesafio.id
+        val desafioId = docDesafio.id
         val nombreDesafio = docDesafio.getString("nombreDesafio") ?: "Desafío Completado"
         val habitosRequeridos = docDesafio.get("habitosRequeridos") as? List<String> ?: emptyList()
         val metaObjetivo = docDesafio.getLong("metaObjetivo")?.toInt() ?: 1
@@ -62,16 +57,21 @@ class GestionarProgresoHabitoUseCase(
         val hoyStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         val estaTildadoHoy = fechasActualizadas.contains(hoyStr)
 
-        // 🔍 LOG 2: Desafío encontrado
-        android.util.Log.d("DEBUG_COMBO", "2. Encontró desafío: $nombreDesafio. Pide: $habitosRequeridos. ¿Está tildado hoy?: $estaTildadoHoy")
+        // Reconstruimos el objeto desafío para pasarlo al repository
+        val desafioObj = DesafioObjetivo(
+            id = desafioId,
+            nombreDesafio = nombreDesafio,
+            habitosRequeridos = habitosRequeridos,
+            metaObjetivo = metaObjetivo
+        )
+
+        android.util.Log.d("DEBUG_COMBO", "2. Desafío: $nombreDesafio. Pide: $habitosRequeridos. ¿Tildado hoy?: $estaTildadoHoy")
 
         if (habitosRequeridos.size > 1) {
-            // -------------------------------------------------------------------------
-            // Caso A: Es un Desafío tipo Combo (Múltiples hábitos)
-            // -------------------------------------------------------------------------
+            // ---------------------------------------------------------------
+            // Caso A: Desafío tipo Combo (múltiples hábitos)
+            // ---------------------------------------------------------------
             if (estaTildadoHoy) {
-                android.util.Log.d("DEBUG_COMBO", "3. Buscando suscripción activa para el desafíoId: $desafioId")
-
                 val suscripcionDesafio = db.collection("usuarios_suscripciones")
                     .whereEqualTo("userId", habito.userId)
                     .whereEqualTo("desafioId", desafioId)
@@ -82,40 +82,25 @@ class GestionarProgresoHabitoUseCase(
 
                 if (!suscripcionDesafio.isEmpty) {
                     val docSuscripcion = suscripcionDesafio.documents.first()
-
-                    // 🚀 LEEMOS LOS IDS DE LOS DOCUMENTOS ESPECÍFICOS DE ESTA SUSCRIPCIÓN
                     val hijosAsociados = docSuscripcion.get("suscripcionesHabitosHijos") as? List<String> ?: emptyList()
-
-                    // Traemos las suscripciones de hábitos del usuario
                     val habitosDelUsuario = habitosRepository.obtenerSuscripcionesUsuario(habito.userId)
 
-                    // 🔍 VALIDACIÓN INMUNE A DUPLICADOS:
-                    // Verificamos que TODOS los documentos físicos guardados en el desafío estén tildados hoy
                     val cumplioComboHoy = hijosAsociados.all { idDocFisico ->
                         habitosDelUsuario.any { h ->
                             h.id == idDocFisico && h.fechasCumplidas.contains(hoyStr)
                         }
                     }
 
-                    android.util.Log.d("DEBUG_COMBO", "Validando contra instancias físicas: $hijosAsociados. Resultado: $cumplioComboHoy")
                     if (cumplioComboHoy) {
-                        // Marcamos el desafío como hecho
                         db.collection("usuarios_suscripciones")
                             .document(docSuscripcion.id)
                             .update("completado", true)
                             .await()
 
-                        // Grabamos la insignia en logros_usuarios
-                        val nuevoLogroRef = db.collection("logros_usuarios").document()
-                        nuevoLogroRef.set(hashMapOf(
-                            "id" to nuevoLogroRef.id,
-                            "desafioId" to desafioId,
-                            "nombreDesafio" to nombreDesafio,
-                            "userId" to habito.userId,
-                            "fechaObtencion" to hoyStr
-                        )).await()
+                        // ✅ FIX 2: Usamos logrosRepository que ya tiene el chequeo de duplicados
+                        logrosRepository.registrarLogroGanado(habito.userId, desafioObj)
 
-                        android.util.Log.d("DEBUG_COMBO", "🏆 ¡LOGRO GRABADO EN FIRESTORE!")
+                        android.util.Log.d("DEBUG_COMBO", "🏆 ¡LOGRO GRABADO!")
 
                         return ResultadoProgreso(
                             habitoActualizado = habitoActualizado,
@@ -126,23 +111,18 @@ class GestionarProgresoHabitoUseCase(
                         )
                     }
                 } else {
-                    android.util.Log.w("DEBUG_COMBO", "⚠️ Freno: No se encontró la suscripción testigo activa para desafioId='$desafioId'")
+                    android.util.Log.w("DEBUG_COMBO", "No se encontró la suscripción activa para desafioId='$desafioId'")
                 }
             }
         } else {
-            // -------------------------------------------------------------------------
-            // Caso B: Es un desafío clásico de un solo hábito por acumulación
-            // -------------------------------------------------------------------------
-            val seCumplioMetaIndividual = fechasActualizadas.size >= metaObjetivo
-            if (seCumplioMetaIndividual) {
-                val nuevoLogroRef = db.collection("logros_usuarios").document()
-                nuevoLogroRef.set(hashMapOf(
-                    "id" to nuevoLogroRef.id,
-                    "desafioId" to desafioId,
-                    "nombreDesafio" to nombreDesafio,
-                    "userId" to habito.userId,
-                    "fechaObtencion" to hoyStr
-                )).await()
+            // ---------------------------------------------------------------
+            // Caso B: Desafío clásico de un solo hábito por acumulación
+            // ---------------------------------------------------------------
+            val seCumplioMeta = fechasActualizadas.size >= metaObjetivo
+            if (seCumplioMeta) {
+                // ✅ FIX 3: Usamos logrosRepository que ya tiene el chequeo de duplicados
+                // Antes se escribía directo a Firestore sin verificar si ya existía el logro
+                logrosRepository.registrarLogroGanado(habito.userId, desafioObj)
 
                 return ResultadoProgreso(
                     habitoActualizado = habitoActualizado,
