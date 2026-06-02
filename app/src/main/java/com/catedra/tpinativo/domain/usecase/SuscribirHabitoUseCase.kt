@@ -8,7 +8,7 @@ class SuscribirHabitoUseCase(
 ) {
     // El "Invoke" permite ejecutar la clase como si fuera una función
     suspend operator fun invoke(userId: String, plantilla: HabitoPlantilla) {
-        // Acá podrías meter reglas de negocio futuras (ej: validar que no esté suscrito ya)
+        // Acá podemos meter reglas de negocio futuras (ej: validar que no esté suscrito ya)
         habitosRepository.suscribirUsuarioAHabito(userId, plantilla)
     }
 }

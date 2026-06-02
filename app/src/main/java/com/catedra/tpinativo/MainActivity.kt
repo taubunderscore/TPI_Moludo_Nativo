@@ -38,8 +38,8 @@ class MainActivity : ComponentActivity() {
         // 2. Casos de Uso (Capa de Dominio)
         val gestionarProgresoUseCase = GestionarProgresoHabitoUseCase(habitosRepo, logrosRepo)
         val suscribirUseCase = SuscribirHabitoUseCase(habitosRepo)
-        val obtenerDesafiosUseCase = ObtenerDesafiosCatalogoUseCase(desafiosRepo) // 🚀 Nuevo caso de uso
-        val suscribirseADesafioUseCase = SuscribirseADesafioUseCase(habitosRepo) // 🚀 Nuevo caso de uso combo
+        val obtenerDesafiosUseCase = ObtenerDesafiosCatalogoUseCase(desafiosRepo) // Nuevo caso de uso
+        val suscribirseADesafioUseCase = SuscribirseADesafioUseCase(habitosRepo) //Nuevo caso de uso combo
 
         // 3. Fábrica inyectando TODO el ecosistema completo
         habitosViewModel = ViewModelProvider(

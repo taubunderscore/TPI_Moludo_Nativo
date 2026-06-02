@@ -1,3 +1,4 @@
+
 package com.catedra.tpinativo.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
@@ -26,6 +27,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     val desafios by viewModel.desafiosCatalogo.collectAsState()
     var categoriaSeleccionada by remember { mutableStateOf("Físico") }
     val state by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.mensajeInspirador) {
@@ -38,7 +40,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     LaunchedEffect(categoriaSeleccionada) {
         if (categoriaSeleccionada == "🏆 Desafíos") {
             viewModel.cargarDesafios()
-            // ✅ Cargamos todas las categorías acumuladas para resolver nombres en las cards
+            // Cargamos todas las categorías acumuladas para resolver nombres en las cards
             viewModel.cargarTodasLasPlantillas()
         } else {
             viewModel.cargarCatalogoPorCategoria(categoriaSeleccionada)
@@ -60,7 +62,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // ✅ Row con scroll horizontal — evita conflictos con LazyColumn
+            // Row con scroll horizontal — evita conflictos con LazyColumn
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -68,7 +70,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("Físico", "Estudio", "Salud", "Productividad", "🏆 Desafíos").forEach { cat ->
+                listOf("🏆 Desafíos", "Estudio", "Salud", "Productividad", "Físico").forEach { cat ->
                     FilterChip(
                         selected = categoriaSeleccionada == cat,
                         onClick = { categoriaSeleccionada = cat },
@@ -103,7 +105,14 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                             textoBoton = textoBoton,
                             botonDeshabilitado = botonDeshabilitado,
                             yaSeCumplioHoy = yaSeCumplioHoy,
-                            onSuscribirse = { viewModel.suscribirseADesafio(userId, desafio) }
+                            onSuscribirse = { viewModel.suscribirseADesafio(userId, desafio) },
+                            onDarDeBaja = {
+                                viewModel.darDeBajaDesafioCompleto(
+                                    desafio = desafio,
+                                    habitosHijos = uiState.habitos.filter { it.desafioId == desafio.id },
+                                    userId = userId
+                                )
+                            }
                         )
                     }
                 } else {
@@ -141,7 +150,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     }
 }
 
-// ✅ Card de desafío expandible — muestra los hábitos asociados al tocar
+//  Card de desafío expandible — muestra los hábitos asociados al tocar
 @Composable
 fun DesafioCard(
     desafio: DesafioObjetivo,
@@ -149,9 +158,53 @@ fun DesafioCard(
     textoBoton: String,
     botonDeshabilitado: Boolean,
     yaSeCumplioHoy: Boolean,
-    onSuscribirse: () -> Unit
+    onSuscribirse: () -> Unit,
+    onDarDeBaja: () -> Unit
 ) {
     var expandida by remember { mutableStateOf(false) }
+    var mostrarDialogoBaja by remember { mutableStateOf(false) }
+
+    val yaSuscripto = textoBoton == "Ya estás suscripto" || yaSeCumplioHoy
+
+    // ✅ Diálogo de confirmación de baja en cascada
+    if (mostrarDialogoBaja) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoBaja = false },
+            title = { Text("⚠️ Dar de baja el desafío") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Se eliminarán de tu lista:")
+                    desafio.habitosRequeridos.forEach { plantillaId ->
+                        val nombre = plantillas.find { it.id == plantillaId }?.nombre ?: plantillaId
+                        Text("  •  $nombre")
+                    }
+                    Text("  •  El desafío completo")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Esta acción no se puede deshacer.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        mostrarDialogoBaja = false
+                        onDarDeBaja()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Dar de baja") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { mostrarDialogoBaja = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
 
     // Resolvemos los nombres de los hábitos asociados desde las plantillas cargadas
     // Si no están cargadas mostramos el ID como fallback
@@ -239,33 +292,54 @@ fun DesafioCard(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Botón de suscripción
-                    Button(
-                        onClick = onSuscribirse,
-                        enabled = !botonDeshabilitado || yaSeCumplioHoy,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (yaSeCumplioHoy) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
-                            disabledContainerColor = Color.LightGray,
-                            disabledContentColor = Color.DarkGray
-                        )
-                    ) {
-                        Text(textoBoton)
+                    // ── Botones según estado ──────────────────────────
+                    if (yaSuscripto) {
+                        // Ya suscripto — mostrar botón de baja
+                        OutlinedButton(
+                            onClick = { mostrarDialogoBaja = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Text("Dar de baja el desafío")
+                        }
+                    } else {
+                        // No suscripto — mostrar botón de unirse
+                        Button(
+                            onClick = onSuscribirse,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (yaSeCumplioHoy) Color(0xFF4CAF50)
+                                else MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text(textoBoton)
+                        }
                     }
                 }
             }
 
-            // Botón visible cuando está contraída y no está suscripto
-            if (!expandida && !botonDeshabilitado) {
+            // Botón visible cuando está contraída
+            if (!expandida) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = onSuscribirse,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(textoBoton)
+                if (yaSuscripto) {
+                    OutlinedButton(
+                        onClick = { mostrarDialogoBaja = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Dar de baja el desafío")
+                    }
+                } else {
+                    Button(
+                        onClick = onSuscribirse,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(textoBoton)
+                    }
                 }
             }
         }

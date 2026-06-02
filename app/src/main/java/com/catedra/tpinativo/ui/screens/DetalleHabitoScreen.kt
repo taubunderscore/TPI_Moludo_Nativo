@@ -46,13 +46,13 @@ fun DetalleHabitoScreen(
     val desafios by viewModel.desafiosCatalogo.collectAsStateWithLifecycle()
     val habitoReal = uiState.habitos.find { it.id == habitoId }
 
-    // ✅ Solo es hábito de desafío si tiene desafioId — no por plantillaId
+    // Solo es hábito de desafío si tiene desafioId — no por plantillaId
     // Esto evita falsos positivos cuando el usuario se suscribe individualmente
     val desafioAsociado = habitoReal?.desafioId?.let { desafioId ->
         desafios.find { it.id == desafioId }
     }
 
-    // ✅ Si tiene desafío, resolvemos los nombres de los otros hábitos hijos
+    //  Si tiene desafío, resolvemos los nombres de los otros hábitos hijos
     val habitosDelDesafio = desafioAsociado?.habitosRequeridos?.mapNotNull { plantillaId ->
         uiState.habitos.find { it.plantillaId == plantillaId }
     } ?: emptyList()
@@ -68,7 +68,7 @@ fun DetalleHabitoScreen(
             onVolver()
         },
         onDarDeBajaCascada = {
-            // Hábito de desafío — baja en cascada de todo el desafío
+            // Hábito de desafío — baja en cascada de tod o  el desafio
             viewModel.darDeBajaDesafioCompleto(
                 desafio = desafioAsociado!!,
                 habitosHijos = habitosDelDesafio,
@@ -91,10 +91,10 @@ fun DetalleHabitoContent(
     val hoy = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
     var mostrarDialogo by remember { mutableStateOf(false) }
 
-    // ✅ Diálogo adaptativo según si tiene desafío o no
+    // Diálogo adaptativo según si tiene desafío o no
     if (mostrarDialogo) {
         if (desafioAsociado != null) {
-            // Caso C — hábito atado a desafío
+            // caso hábito atado a desafío
             AlertDialog(
                 onDismissRequest = { mostrarDialogo = false },
                 title = { Text("⚠️ Hábito con desafío asociado") },

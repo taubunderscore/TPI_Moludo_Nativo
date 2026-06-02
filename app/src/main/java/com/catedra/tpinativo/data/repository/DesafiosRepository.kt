@@ -7,7 +7,6 @@ import kotlinx.coroutines.tasks.await
 class DesafiosRepository {
     private val db = FirebaseFirestore.getInstance()
 
-    // ✅ Usa doc.id en vez del campo "id" interno — no necesitás campo id en Firestore
     suspend fun obtenerTodosLosDesafios(): List<DesafioObjetivo> {
         return try {
             db.collection("desafios_objetivos")
@@ -16,7 +15,7 @@ class DesafiosRepository {
                 .documents
                 .map { doc ->
                     DesafioObjetivo(
-                        id = doc.id, // ✅ ID del documento directo
+                        id = doc.id, // ID del documento directo
                         plantillaId = doc.getString("plantillaId") ?: "",
                         nombreDesafio = doc.getString("nombreDesafio") ?: "",
                         metaObjetivo = doc.getLong("metaObjetivo")?.toInt() ?: 1,

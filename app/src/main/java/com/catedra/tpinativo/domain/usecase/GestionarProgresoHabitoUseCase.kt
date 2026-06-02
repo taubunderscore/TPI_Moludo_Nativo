@@ -68,9 +68,7 @@ class GestionarProgresoHabitoUseCase(
         android.util.Log.d("DEBUG_COMBO", "2. Desafío: $nombreDesafio. Pide: $habitosRequeridos. ¿Tildado hoy?: $estaTildadoHoy")
 
         if (habitosRequeridos.size > 1) {
-            // ---------------------------------------------------------------
-            // Caso A: Desafío tipo Combo (múltiples hábitos)
-            // ---------------------------------------------------------------
+            //  Desafío tipo Combo (múltiples hábitos)
             if (estaTildadoHoy) {
                 val suscripcionDesafio = db.collection("usuarios_suscripciones")
                     .whereEqualTo("userId", habito.userId)
@@ -97,7 +95,7 @@ class GestionarProgresoHabitoUseCase(
                             .update("completado", true)
                             .await()
 
-                        // ✅ FIX 2: Usamos logrosRepository que ya tiene el chequeo de duplicados
+                        // Usamos logrosRepository que ya tiene el chequeo de duplicados
                         logrosRepository.registrarLogroGanado(habito.userId, desafioObj)
 
                         android.util.Log.d("DEBUG_COMBO", "🏆 ¡LOGRO GRABADO!")
@@ -115,13 +113,10 @@ class GestionarProgresoHabitoUseCase(
                 }
             }
         } else {
-            // ---------------------------------------------------------------
-            // Caso B: Desafío clásico de un solo hábito por acumulación
-            // ---------------------------------------------------------------
+                // Desafío clásico de un solo hábito por acumulación
             val seCumplioMeta = fechasActualizadas.size >= metaObjetivo
             if (seCumplioMeta) {
-                // ✅ FIX 3: Usamos logrosRepository que ya tiene el chequeo de duplicados
-                // Antes se escribía directo a Firestore sin verificar si ya existía el logro
+                // Usamos logrosRepository que ya tiene el chequeo de duplicados
                 logrosRepository.registrarLogroGanado(habito.userId, desafioObj)
 
                 return ResultadoProgreso(

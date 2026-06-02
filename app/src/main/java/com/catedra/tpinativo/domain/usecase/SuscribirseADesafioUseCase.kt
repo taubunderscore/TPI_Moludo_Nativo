@@ -12,7 +12,7 @@ class SuscribirseADesafioUseCase(
 
     suspend operator fun invoke(userId: String, desafio: DesafioObjetivo) {
         try {
-            // ✅ Verificar si ya existe la suscripción
+            //  Verificar si ya existe la suscripción
             val docId = "${userId}_${desafio.id}"
             val yaExiste = db.collection("usuarios_suscripciones")
                 .document(docId)
@@ -27,7 +27,7 @@ class SuscribirseADesafioUseCase(
 
             val listaIdsHijos = mutableListOf<String>()
 
-            // 1. Insertamos los hábitos hijos marcados con el desafioId
+            //  Insertamos los hábitos hijos marcados con el desafioId
             desafio.habitosRequeridos.forEach { plantillaId ->
                 val plantilla = habitosRepository.obtenerPlantillaPorId(plantillaId)
                 if (plantilla != null) {
@@ -41,7 +41,7 @@ class SuscribirseADesafioUseCase(
                 }
             }
 
-            // 2. Creamos el registro del desafío con los punteros a sus hijos
+            //  Creamos el registro del desafío con los punteros a sus hijos
             val suscripcionDesafio = hashMapOf(
                 "id"                        to docId,
                 "userId"                    to userId,

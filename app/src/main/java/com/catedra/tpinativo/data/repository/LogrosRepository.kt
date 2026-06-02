@@ -8,7 +8,7 @@ import kotlinx.coroutines.tasks.await
 class LogrosRepository {
     private val db = FirebaseFirestore.getInstance()
 
-    // 1. Busca desafío por plantillaId
+    // Busca desafío por plantillaId
     suspend fun obtenerDesafioPorPlantilla(plantillaId: String): DesafioObjetivo? {
         return try {
             db.collection("desafios_objetivos")
@@ -32,10 +32,10 @@ class LogrosRepository {
         }
     }
 
-    // 2. Graba la medalla — con chequeo de duplicado usando doc.id del desafío
+    // Graba la medalla — con chequeo de duplicado usando doc.id del desafío
     suspend fun registrarLogroGanado(userId: String, desafio: DesafioObjetivo) {
         try {
-            // ✅ Chequeo de duplicado usando doc.id del desafío
+            // Chequeo de duplicado usando doc.id del desafío
             val yaExiste = db.collection("logros_usuarios")
                 .whereEqualTo("userId", userId)
                 .whereEqualTo("desafioId", desafio.id)
@@ -58,7 +58,7 @@ class LogrosRepository {
         }
     }
 
-    // 3. Trae los trofeos del usuario — usando doc.id
+    // Trae los trofeos del usuario — usando doc.id
     suspend fun obtenerLogrosUsuario(userId: String): List<LogroUsuario> {
         return try {
             db.collection("logros_usuarios")
