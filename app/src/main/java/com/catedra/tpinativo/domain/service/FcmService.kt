@@ -1,10 +1,10 @@
-package com.catedra.tpinativo.domain.usecase
+package com.catedra.tpinativo.domain.service
 
 import android.app.NotificationManager
 import androidx.core.app.NotificationCompat
+import com.catedra.tpinativo.R
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.catedra.tpinativo.R
 
 class FcmService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
@@ -13,7 +13,7 @@ class FcmService : FirebaseMessagingService() {
     }
 
     private fun showNotificacion(message: RemoteMessage) {
-        val notificationManager = getSystemService(NotificationManager::class.java)
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         val notification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(message.notification?.title)

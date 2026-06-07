@@ -1,140 +1,214 @@
 package com.catedra.tpinativo.domain.usecase
 
-import com.catedra.tpinativo.data.model.DesafioObjetivo
-import com.catedra.tpinativo.data.model.HabitoSuscrito
+import android.annotation.SuppressLint
+import android.content.Context
+import android.location.LocationManager
+import android.os.Looper
+import com.catedra.tpinativo.data.model.Desafio
+import com.catedra.tpinativo.data.model.TipoDesafio
+import com.catedra.tpinativo.data.model.UsuarioHabito
+import com.catedra.tpinativo.data.repository.CumplimientosRepository
+import com.catedra.tpinativo.data.repository.DesafiosRepository
 import com.catedra.tpinativo.data.repository.HabitosRepository
-import com.catedra.tpinativo.data.repository.LogrosRepository
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
 
 data class ResultadoProgreso(
-    val habitoActualizado: HabitoSuscrito,
+    val marcadoComoHecho: Boolean,
+    val fechasCumplidas: List<String>,
     val porcentajeAvance: Int = 0,
-    val progresoBarra: Float = 0.0f,
+    val progresoBarra: Float = 0f,
     val desafioDesbloqueado: Boolean = false,
     val nombreDesafio: String? = null
 )
 
+/**
+ * Alterna el estado de cumplimiento de un UsuarioHabito para el día de hoy
+ * y evalúa si algún desafío asociado debe desbloquearse.
+ * Cuando se desbloquea un desafío, captura la geolocalización actual y la guarda en Firestore.
+ */
 class GestionarProgresoHabitoUseCase(
     private val habitosRepository: HabitosRepository,
-    private val logrosRepository: LogrosRepository
+    private val cumplimientosRepository: CumplimientosRepository,
+    private val desafiosRepository: DesafiosRepository,
+    private val context: Context? = null
 ) {
-    private val db = FirebaseFirestore.getInstance()
-
-    suspend fun ejecutar(habito: HabitoSuscrito): ResultadoProgreso {
-        val fechasActualizadas = habitosRepository.alternarFechaCumplimiento(habito)
-        val habitoActualizado = habito.copy(fechasCumplidas = fechasActualizadas)
-
-        if (habito.plantillaId == null) {
-            return ResultadoProgreso(habitoActualizado = habitoActualizado)
-        }
-
-        android.util.Log.d("DEBUG_COMBO", "1. Gatillado por hábito: ${habito.nombre} (plantillaId: ${habito.plantillaId})")
-
-        val desafioSnapshot = db.collection("desafios_objetivos")
-            .whereArrayContains("habitosRequeridos", habito.plantillaId)
-            .get()
-            .await()
-
-        if (desafioSnapshot.isEmpty) {
-            android.util.Log.w("DEBUG_COMBO", "Este hábito no pertenece a ningún desafío en la DB")
-            return ResultadoProgreso(habitoActualizado = habitoActualizado)
-        }
-
-        val docDesafio = desafioSnapshot.documents.first()
-        val desafioId = docDesafio.id
-        val nombreDesafio = docDesafio.getString("nombreDesafio") ?: "Desafío Completado"
-        val habitosRequeridos = docDesafio.get("habitosRequeridos") as? List<String> ?: emptyList()
-        val metaObjetivo = docDesafio.getLong("metaObjetivo")?.toInt() ?: 1
-
-        val totalDiasCumplidos = fechasActualizadas.size.toFloat()
-        val progresoFloat = (totalDiasCumplidos / metaObjetivo.toFloat()).coerceAtMost(1.0f)
-        val porcentajeEntero = (progresoFloat * 100).toInt()
-
-        val hoyStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        val estaTildadoHoy = fechasActualizadas.contains(hoyStr)
-
-        // Reconstruimos el objeto desafío para pasarlo al repository
-        val desafioObj = DesafioObjetivo(
-            id = desafioId,
-            nombreDesafio = nombreDesafio,
-            habitosRequeridos = habitosRequeridos,
-            metaObjetivo = metaObjetivo
+    suspend fun ejecutar(usuarioHabito: UsuarioHabito): ResultadoProgreso {
+        val marcado = cumplimientosRepository.alternarCumplimientoHoy(
+            userId           = usuarioHabito.userId,
+            usuarioHabitoId  = usuarioHabito.id,
+            habitoCatalogoId = usuarioHabito.habitoId
         )
 
-        android.util.Log.d("DEBUG_COMBO", "2. Desafío: $nombreDesafio. Pide: $habitosRequeridos. ¿Tildado hoy?: $estaTildadoHoy")
+        val fechas = cumplimientosRepository.obtenerFechasCumplidas(
+            userId          = usuarioHabito.userId,
+            usuarioHabitoId = usuarioHabito.id
+        )
 
-        if (habitosRequeridos.size > 1) {
-            //  Desafío tipo Combo (múltiples hábitos)
-            if (estaTildadoHoy) {
-                val suscripcionDesafio = db.collection("usuarios_suscripciones")
-                    .whereEqualTo("userId", habito.userId)
-                    .whereEqualTo("desafioId", desafioId)
-                    .whereEqualTo("tipo", "DESAFIO")
-                    .whereEqualTo("completado", false)
-                    .get()
-                    .await()
+        val desafioId = usuarioHabito.desafioId
+            ?: return ResultadoProgreso(
+                marcadoComoHecho = marcado,
+                fechasCumplidas  = fechas
+            )
 
-                if (!suscripcionDesafio.isEmpty) {
-                    val docSuscripcion = suscripcionDesafio.documents.first()
-                    val hijosAsociados = docSuscripcion.get("suscripcionesHabitosHijos") as? List<String> ?: emptyList()
-                    val habitosDelUsuario = habitosRepository.obtenerSuscripcionesUsuario(habito.userId)
+        val desafio = desafiosRepository.obtenerDesafioPorId(desafioId)
+            ?: return ResultadoProgreso(marcadoComoHecho = marcado, fechasCumplidas = fechas)
 
-                    val cumplioComboHoy = hijosAsociados.all { idDocFisico ->
-                        habitosDelUsuario.any { h ->
-                            h.id == idDocFisico && h.fechasCumplidas.contains(hoyStr)
-                        }
-                    }
+        return when (desafio.tipo) {
+            TipoDesafio.ACUMULACION -> evaluarAcumulacion(usuarioHabito, desafio, fechas, marcado)
+            TipoDesafio.COMBO       -> evaluarCombo(usuarioHabito, desafio, fechas, marcado)
+        }
+    }
 
-                    if (cumplioComboHoy) {
-                        db.collection("usuarios_suscripciones")
-                            .document(docSuscripcion.id)
-                            .update("completado", true)
-                            .await()
+    private suspend fun evaluarAcumulacion(
+        usuarioHabito: UsuarioHabito,
+        desafio: Desafio,
+        fechas: List<String>,
+        marcado: Boolean
+    ): ResultadoProgreso {
+        val progreso   = (fechas.size.toFloat() / desafio.meta.toFloat()).coerceAtMost(1f)
+        val porcentaje = (progreso * 100).toInt()
+        val seCumplioMeta = fechas.size >= desafio.meta
 
-                        // Usamos logrosRepository que ya tiene el chequeo de duplicados
-                        logrosRepository.registrarLogroGanado(habito.userId, desafioObj)
-
-                        android.util.Log.d("DEBUG_COMBO", "🏆 ¡LOGRO GRABADO!")
-
-                        return ResultadoProgreso(
-                            habitoActualizado = habitoActualizado,
-                            porcentajeAvance = 100,
-                            progresoBarra = 1.0f,
-                            desafioDesbloqueado = true,
-                            nombreDesafio = nombreDesafio
-                        )
-                    }
-                } else {
-                    android.util.Log.w("DEBUG_COMBO", "No se encontró la suscripción activa para desafioId='$desafioId'")
-                }
-            }
-        } else {
-                // Desafío clásico de un solo hábito por acumulación
-            val seCumplioMeta = fechasActualizadas.size >= metaObjetivo
-            if (seCumplioMeta) {
-                // Usamos logrosRepository que ya tiene el chequeo de duplicados
-                logrosRepository.registrarLogroGanado(habito.userId, desafioObj)
-
-                return ResultadoProgreso(
-                    habitoActualizado = habitoActualizado,
-                    porcentajeAvance = porcentajeEntero,
-                    progresoBarra = progresoFloat,
-                    desafioDesbloqueado = true,
-                    nombreDesafio = nombreDesafio
-                )
-            }
+        if (seCumplioMeta && marcado) {
+            val (lat, lng) = obtenerUbicacion()
+            desafiosRepository.marcarDesafioCompletado(
+                userId   = usuarioHabito.userId,
+                desafio  = desafio,
+                latitud  = lat,
+                longitud = lng
+            )
         }
 
         return ResultadoProgreso(
-            habitoActualizado = habitoActualizado,
-            porcentajeAvance = porcentajeEntero,
-            progresoBarra = progresoFloat,
-            desafioDesbloqueado = false,
-            nombreDesafio = nombreDesafio
+            marcadoComoHecho    = marcado,
+            fechasCumplidas     = fechas,
+            porcentajeAvance    = porcentaje,
+            progresoBarra       = progreso,
+            desafioDesbloqueado = seCumplioMeta && marcado,
+            nombreDesafio       = if (seCumplioMeta && marcado) desafio.nombre else null
         )
+    }
+
+    private suspend fun evaluarCombo(
+        usuarioHabito: UsuarioHabito,
+        desafio: Desafio,
+        fechas: List<String>,
+        marcado: Boolean
+    ): ResultadoProgreso {
+        if (!marcado) {
+            return ResultadoProgreso(
+                marcadoComoHecho = false,
+                fechasCumplidas  = fechas
+            )
+        }
+
+        val todosLosHabitos   = habitosRepository.obtenerHabitosUsuario(usuarioHabito.userId)
+        val habitosDelDesafio = todosLosHabitos.filter { it.desafioId == desafio.id }
+
+        val cumplioComboHoy = habitosDelDesafio.all { hermano ->
+            cumplimientosRepository.estaCumplidoHoy(usuarioHabito.userId, hermano.id)
+        }
+
+        if (cumplioComboHoy) {
+            val (lat, lng) = obtenerUbicacion()
+            desafiosRepository.marcarDesafioCompletado(
+                userId   = usuarioHabito.userId,
+                desafio  = desafio,
+                latitud  = lat,
+                longitud = lng
+            )
+        }
+
+        return ResultadoProgreso(
+            marcadoComoHecho    = true,
+            fechasCumplidas     = fechas,
+            porcentajeAvance    = if (cumplioComboHoy) 100 else 0,
+            progresoBarra       = if (cumplioComboHoy) 1f else 0f,
+            desafioDesbloqueado = cumplioComboHoy,
+            nombreDesafio       = if (cumplioComboHoy) desafio.nombre else null
+        )
+    }
+
+    // ─── Geolocalización ─────────────────────────────────────────────────────
+
+    /**
+     * Obtiene la ubicación actual con doble estrategia:
+     * 1. Intenta lastLocation (rápido, puede ser null si no hay caché).
+     * 2. Si lastLocation == null, solicita una ubicación fresca con getCurrentLocation.
+     * Timeout total de 8 segundos para no bloquear la UX.
+     */
+    @SuppressLint("MissingPermission")
+    private suspend fun obtenerUbicacion(): Pair<Double?, Double?> {
+        val ctx = context ?: return Pair(null, null)
+        return try {
+            val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            val hayProvider = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            if (!hayProvider) {
+                android.util.Log.w("ProgresoUseCase", "Ningún provider de ubicación habilitado")
+                return Pair(null, null)
+            }
+
+            val fusedClient = LocationServices.getFusedLocationProviderClient(ctx)
+
+            // Intento 1: lastLocation (instantáneo si hay caché)
+            val lastLoc = withTimeoutOrNull(3_000L) {
+                suspendCancellableCoroutine { cont ->
+                    fusedClient.lastLocation
+                        .addOnSuccessListener { loc -> cont.resume(loc) }
+                        .addOnFailureListener { cont.resume(null) }
+                }
+            }
+
+            if (lastLoc != null) {
+                android.util.Log.d("ProgresoUseCase", "Ubicación obtenida (lastLocation): ${lastLoc.latitude}, ${lastLoc.longitude}")
+                return Pair(lastLoc.latitude, lastLoc.longitude)
+            }
+
+            // Intento 2: solicitar ubicación fresca (puede tardar más)
+            android.util.Log.d("ProgresoUseCase", "lastLocation null, solicitando ubicación fresca...")
+            val freshLoc = withTimeoutOrNull(8_000L) {
+                suspendCancellableCoroutine { cont ->
+                    val request = LocationRequest.Builder(
+                        Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                        1000L
+                    ).setMaxUpdates(1).build()
+
+                    val callback = object : LocationCallback() {
+                        override fun onLocationResult(result: LocationResult) {
+                            cont.resume(result.lastLocation)
+                        }
+                    }
+
+                    fusedClient.requestLocationUpdates(
+                        request,
+                        callback,
+                        Looper.getMainLooper()
+                    ).addOnFailureListener { cont.resume(null) }
+
+                    cont.invokeOnCancellation {
+                        fusedClient.removeLocationUpdates(callback)
+                    }
+                }
+            }
+
+            if (freshLoc != null) {
+                android.util.Log.d("ProgresoUseCase", "Ubicación fresca: ${freshLoc.latitude}, ${freshLoc.longitude}")
+                Pair(freshLoc.latitude, freshLoc.longitude)
+            } else {
+                android.util.Log.w("ProgresoUseCase", "No se pudo obtener ubicación fresca (timeout)")
+                Pair(null, null)
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("ProgresoUseCase", "Error obteniendo ubicación: ${e.localizedMessage}")
+            Pair(null, null)
+        }
     }
 }

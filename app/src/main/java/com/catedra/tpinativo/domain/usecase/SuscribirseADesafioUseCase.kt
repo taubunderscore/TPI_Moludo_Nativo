@@ -1,63 +1,32 @@
 package com.catedra.tpinativo.domain.usecase
 
-import com.catedra.tpinativo.data.model.DesafioObjetivo
+import com.catedra.tpinativo.data.model.Desafio
+import com.catedra.tpinativo.data.repository.DesafiosRepository
 import com.catedra.tpinativo.data.repository.HabitosRepository
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.tasks.await
 
+/**
+ * Suscribe al usuario a un desafío del catálogo:
+ * crea un UsuarioHabito hijo por cada hábito del desafío
+ * y registra la suscripción en usuario_desafios.
+ * Es idempotente: el repositorio ignora la operación si ya existe el documento.
+ */
 class SuscribirseADesafioUseCase(
     private val habitosRepository: HabitosRepository,
+    private val desafiosRepository: DesafiosRepository
 ) {
-    private val db = FirebaseFirestore.getInstance()
+    suspend operator fun invoke(userId: String, desafio: Desafio) {
+        val habitosHijosIds = mutableListOf<String>()
 
-    suspend operator fun invoke(userId: String, desafio: DesafioObjetivo) {
-        try {
-            //  Verificar si ya existe la suscripción
-            val docId = "${userId}_${desafio.id}"
-            val yaExiste = db.collection("usuarios_suscripciones")
-                .document(docId)
-                .get()
-                .await()
-                .exists()
-
-            if (yaExiste) {
-                android.util.Log.w("DEBUG_SUSCRIPCION", "Ya suscripto al desafío ${desafio.id}")
-                return
-            }
-
-            val listaIdsHijos = mutableListOf<String>()
-
-            //  Insertamos los hábitos hijos marcados con el desafioId
-            desafio.habitosRequeridos.forEach { plantillaId ->
-                val plantilla = habitosRepository.obtenerPlantillaPorId(plantillaId)
-                if (plantilla != null) {
-                    // ✅ Pasamos el desafioId para que quede marcado en Firestore
-                    val docIdGenerado = habitosRepository.suscribirUsuarioAHabito(
-                        userId = userId,
-                        plantilla = plantilla,
-                        desafioId = desafio.id  // ← marca de origen
-                    )
-                    listaIdsHijos.add(docIdGenerado)
-                }
-            }
-
-            //  Creamos el registro del desafío con los punteros a sus hijos
-            val suscripcionDesafio = hashMapOf(
-                "id"                        to docId,
-                "userId"                    to userId,
-                "desafioId"                 to desafio.id,
-                "tipo"                      to "DESAFIO",
-                "completado"                to false,
-                "suscripcionesHabitosHijos" to listaIdsHijos
+        desafio.habitosIds.forEach { catalogoHabitoId ->
+            val habito = habitosRepository.obtenerHabitoPorId(catalogoHabitoId) ?: return@forEach
+            val idHijo = habitosRepository.suscribirUsuarioAHabito(
+                userId    = userId,
+                habito    = habito,
+                desafioId = desafio.id
             )
-
-            db.collection("usuarios_suscripciones")
-                .document(docId)
-                .set(suscripcionDesafio)
-                .await()
-
-        } catch (e: Exception) {
-            android.util.Log.e("DEBUG_SUSCRIPCION", "Error: ${e.localizedMessage}")
+            if (idHijo.isNotEmpty()) habitosHijosIds.add(idHijo)
         }
+
+        desafiosRepository.suscribirUsuarioADesafio(userId, desafio, habitosHijosIds)
     }
 }
