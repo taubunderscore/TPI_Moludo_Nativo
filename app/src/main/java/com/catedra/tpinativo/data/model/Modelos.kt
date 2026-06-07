@@ -8,80 +8,94 @@ enum class TipoFrecuencia { DIARIO, SEMANAL, MENSUAL }
 
 enum class TipoDesafio { ACUMULACION, COMBO }
 
+enum class CategoriaHabito(val display: String) {
+    FISICO("Físico"),
+    ESTUDIO("Estudio"),
+    SALUD("Salud"),
+    PRODUCTIVIDAD("Productividad")
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  COLECCIÓN: habitos
-//  Catálogo global. Antes: habitos_plantillas
+//  Catálogo global.
 // ─────────────────────────────────────────────────────────────────────────────
 data class Habito(
     val id: String = "",
     val nombre: String = "",
-    val categoria: String = "",          // Físico, Salud, Productividad, Estudio
+    val categoria: String = "",
     val frecuencia: TipoFrecuencia = TipoFrecuencia.DIARIO,
-    val diasConfigurados: List<Int> = emptyList() // [1,3,5] = Lun/Mie/Vie (solo para SEMANAL)
+    val diasConfigurados: List<Int> = emptyList()
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  COLECCIÓN: desafios
-//  Antes: desafios_objetivos
 // ─────────────────────────────────────────────────────────────────────────────
 data class Desafio(
     val id: String = "",
     val nombre: String = "",
     val descripcion: String = "",
     val tipo: TipoDesafio = TipoDesafio.ACUMULACION,
-    val habitosIds: List<String> = emptyList(), // IDs de habitos del catálogo
-    val meta: Int = 0                           // días/veces requeridos para ACUMULACION
+    val habitosIds: List<String> = emptyList(),
+    val meta: Int = 0
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  COLECCIÓN: usuario_habitos
-//  Relación M-N entre usuario y hábito activo. Un doc por par (userId, habitoId).
 // ─────────────────────────────────────────────────────────────────────────────
 data class UsuarioHabito(
-    val id: String = "",                 // doc.id generado por Firestore
+    val id: String = "",
     val userId: String = "",
     val habitoId: String = "",
-    val nombreCache: String = "",        // copia del nombre para mostrar sin extra fetch
+    val nombreCache: String = "",
     val categoriaCache: String = "",
     val frecuenciaCache: String = "DIARIO",
     val diasConfiguradosCache: List<Int> = emptyList(),
     val horaRecordatorio: String? = null,
-    val fechaInicio: String = "",        // ISO yyyy-MM-dd
+    val fechaInicio: String = "",
     val activo: Boolean = true,
-    val desafioId: String? = null        // null = suscripción individual
+    val desafioId: String? = null
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  COLECCIÓN: usuario_desafios
-//  Relación M-N entre usuario y desafío suscripto.
 // ─────────────────────────────────────────────────────────────────────────────
 data class UsuarioDesafio(
-    val id: String = "",                 // doc.id = "${userId}_${desafioId}"
+    val id: String = "",
     val userId: String = "",
     val desafioId: String = "",
     val nombreCache: String = "",
-    val fechaSuscripcion: String = "",   // ISO yyyy-MM-dd
+    val fechaSuscripcion: String = "",
     val completado: Boolean = false,
-    val fechaLogro: String? = null,      // ISO yyyy-MM-dd cuando se completó
-    val habitosHijosIds: List<String> = emptyList(), // IDs de UsuarioHabito creados para este desafío
-
-    // ── Geolocalización del logro ─────────────────────────────────────────────
-    // Se guardan al momento de marcar el desafío como completado.
-    // Null si el usuario no otorgó permiso de ubicación o si el desafío no está completado.
+    val fechaLogro: String? = null,
+    val habitosHijosIds: List<String> = emptyList(),
     val logroLatitud: Double? = null,
     val logroLongitud: Double? = null
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  COLECCIÓN: historial_cumplimientos
-//  Un documento por cada vez que el usuario marca un hábito como cumplido.
-//  Índice compuesto requerido en Firestore: userId ASC + habitoId ASC + fecha ASC
 // ─────────────────────────────────────────────────────────────────────────────
 data class Cumplimiento(
-    val id: String = "",                 // doc.id generado
+    val id: String = "",
     val userId: String = "",
-    val habitoId: String = "",           // ID del UsuarioHabito (no del catálogo)
-    val habitoCatalogoId: String = "",   // ID del Habito en catálogo (para stats globales)
-    val fecha: String = "",              // ISO yyyy-MM-dd
+    val habitoId: String = "",
+    val habitoCatalogoId: String = "",
+    val fecha: String = "",
     val nota: String? = null
+)
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  COLECCIÓN: habitos_personalizados
+//  Hábitos creados por el propio usuario. Siempre DIARIO.
+//  El campo horaRecordatorio dispara una notificación local (AlarmManager).
+// ─────────────────────────────────────────────────────────────────────────────
+data class HabitoPersonalizado(
+    val id: String = "",                          // doc.id generado por Firestore
+    val userId: String = "",
+    val nombre: String = "",
+    val detalle: String = "",
+    val categoria: CategoriaHabito = CategoriaHabito.SALUD,
+    val horaRecordatorio: String = "",            // formato "HH:mm", ej: "08:30"
+    val activo: Boolean = true,
+    val fechaCreacion: String = ""                // ISO yyyy-MM-dd
 )

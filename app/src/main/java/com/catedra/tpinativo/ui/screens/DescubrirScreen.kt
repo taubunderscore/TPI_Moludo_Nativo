@@ -27,7 +27,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     val uiState          by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var categoriaSeleccionada by remember { mutableStateOf("Físico") }
+    var categoriaSeleccionada by remember { mutableStateOf("🏆 Desafíos") }
 
     LaunchedEffect(uiState.mensajeInspirador) {
         uiState.mensajeInspirador?.let {

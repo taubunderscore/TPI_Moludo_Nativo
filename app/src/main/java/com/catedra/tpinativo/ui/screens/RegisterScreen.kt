@@ -46,13 +46,18 @@ fun RegisterScreen(
     val scope   = rememberCoroutineScope()
 
     // ─── Estado del formulario ────────────────────────────────────────────────
-    var email        by remember { mutableStateOf("") }
-    var password     by remember { mutableStateOf("") }
-    var nombre       by remember { mutableStateOf("") }
-    var edad         by remember { mutableStateOf("") }
-    var errorMensaje by remember { mutableStateOf<String?>(null) }
-    var isLoading    by remember { mutableStateOf(false) }
-    var estadoSubida by remember { mutableStateOf("") }  // feedback al usuario
+    var email            by remember { mutableStateOf("") }
+    var password         by remember { mutableStateOf("") }
+    var confirmPassword  by remember { mutableStateOf("") }
+    var nombre           by remember { mutableStateOf("") }
+    var edad             by remember { mutableStateOf("") }
+    var errorMensaje     by remember { mutableStateOf<String?>(null) }
+    var isLoading        by remember { mutableStateOf(false) }
+    var estadoSubida     by remember { mutableStateOf("") }
+
+    // Intereses seleccionados
+    val interesesDisponibles = listOf("Físico", "Estudio", "Salud", "Productividad")
+    val interesesSeleccionados = remember { mutableStateListOf<String>() }
 
     // ─── Foto de perfil ───────────────────────────────────────────────────────
     var fotoUri      by remember { mutableStateOf<Uri?>(null) }
@@ -220,6 +225,55 @@ fun RegisterScreen(
             singleLine             = true
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedTextField(
+            value                  = confirmPassword,
+            onValueChange          = { confirmPassword = it },
+            label                  = { Text("Confirmar contraseña") },
+            visualTransformation   = PasswordVisualTransformation(),
+            modifier               = Modifier.fillMaxWidth(),
+            singleLine             = true,
+            isError                = confirmPassword.isNotEmpty() && confirmPassword != password,
+            supportingText         = {
+                if (confirmPassword.isNotEmpty() && confirmPassword != password)
+                    Text("Las contraseñas no coinciden", color = MaterialTheme.colorScheme.error)
+            }
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // ── Intereses ─────────────────────────────────────────────────────────
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text  = "Intereses",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text  = "Seleccioná los que quieras trabajar",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                interesesDisponibles.forEach { interes ->
+                    val seleccionado = interes in interesesSeleccionados
+                    FilterChip(
+                        selected = seleccionado,
+                        onClick  = {
+                            if (seleccionado) interesesSeleccionados.remove(interes)
+                            else interesesSeleccionados.add(interes)
+                        },
+                        label = { Text(interes, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+            }
+        }
+
         // ── Errores / estado ──────────────────────────────────────────────────
         if (errorMensaje != null) {
             Spacer(modifier = Modifier.height(12.dp))
@@ -249,6 +303,7 @@ fun RegisterScreen(
                     edad.isBlank() || edad.toIntOrNull() == null -> errorMensaje = "Ingresá una edad válida"
                     email.isBlank()                           -> errorMensaje = "El correo es obligatorio"
                     password.length < 6                       -> errorMensaje = "La contraseña debe tener al menos 6 caracteres"
+                    password != confirmPassword               -> errorMensaje = "Las contraseñas no coinciden"
                     else -> {
                         isLoading    = true
                         errorMensaje = null
@@ -271,14 +326,14 @@ fun RegisterScreen(
                                                 "Foto subida ✓" else "No se pudo subir la foto"
                                         }
 
-                                        // 2. Guardar usuario en Firestore con la URL de la foto
+                                        // 2. Guardar usuario en Firestore con intereses seleccionados
                                         estadoSubida = "Guardando datos…"
                                         UserRepository().crearUsuario(
                                             userId    = uid,
                                             nombre    = nombre,
                                             email     = email,
                                             edad      = edad.toInt(),
-                                            intereses = emptyList(),
+                                            intereses = interesesSeleccionados.toList(),
                                             fotoUrl   = fotoUrl
                                         )
 
