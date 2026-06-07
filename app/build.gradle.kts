@@ -71,4 +71,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.0") // para meter el alarm de android para las notificaciones
 }

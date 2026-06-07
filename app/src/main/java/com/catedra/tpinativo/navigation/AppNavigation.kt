@@ -3,6 +3,7 @@ package com.catedra.tpinativo.navigation
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Star
@@ -16,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.catedra.tpinativo.ui.screens.CrearHabitoScreen
 import com.catedra.tpinativo.ui.screens.DescubrirScreen
 import com.catedra.tpinativo.ui.screens.DetalleHabitoScreen
 import com.catedra.tpinativo.ui.screens.HabitosScreen
@@ -26,15 +28,15 @@ import com.catedra.tpinativo.ui.screens.SplashScreen
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.google.firebase.auth.FirebaseAuth
 
-// ── Rutas ─────────────────────────────────────────────────────────
 object Rutas {
-    const val SPLASH    = "splash"
-    const val LOGIN     = "login"
-    const val REGISTRO  = "registro"
-    const val HOME      = "home"
-    const val DESCUBRIR = "descubrir"
-    const val LOGROS    = "logros"
-    const val DETALLE   = "detalle/{habitoId}"
+    const val SPLASH       = "splash"
+    const val LOGIN        = "login"
+    const val REGISTRO     = "registro"
+    const val HOME         = "home"
+    const val DESCUBRIR    = "descubrir"
+    const val LOGROS       = "logros"
+    const val DETALLE      = "detalle/{habitoId}"
+    const val CREAR_HABITO = "crear_habito"  // ✅ nueva ruta
     fun detalle(id: String) = "detalle/$id"
 }
 
@@ -44,8 +46,10 @@ data class ItemBarraNavegacion(
     val icono: ImageVector
 )
 
-// Rutas que NO muestran la barra inferior
 private val RUTAS_SIN_BARRA = setOf(Rutas.SPLASH, Rutas.LOGIN, Rutas.REGISTRO)
+
+// ✅ Rutas donde mostramos el FAB
+private val RUTAS_CON_FAB = setOf(Rutas.HOME)
 
 @Composable
 fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
@@ -62,17 +66,18 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
     Scaffold(
         bottomBar = {
             val mostrarBarra = rutaActual != null
-                && rutaActual !in RUTAS_SIN_BARRA
-                && !rutaActual.startsWith("detalle")
+                    && rutaActual !in RUTAS_SIN_BARRA
+                    && !rutaActual.startsWith("detalle")
+                    && rutaActual != Rutas.CREAR_HABITO
 
             if (mostrarBarra) {
                 NavigationBar {
                     itemsNavegacion.forEach { item ->
                         NavigationBarItem(
-                            icon    = { Icon(item.icono, contentDescription = item.titulo) },
-                            label   = { Text(item.titulo) },
+                            icon     = { Icon(item.icono, contentDescription = item.titulo) },
+                            label    = { Text(item.titulo) },
                             selected = rutaActual == item.ruta,
-                            onClick = {
+                            onClick  = {
                                 if (rutaActual != item.ruta) {
                                     navController.navigate(item.ruta) {
                                         popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -85,15 +90,23 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
                     }
                 }
             }
+        },
+        // ✅ FAB solo en el Home
+        floatingActionButton = {
+            if (rutaActual == Rutas.HOME) {
+                FloatingActionButton(
+                    onClick = { navController.navigate(Rutas.CREAR_HABITO) }
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Crear hábito")
+                }
+            }
         }
     ) { innerPadding ->
         NavHost(
             navController    = navController,
-            startDestination = Rutas.SPLASH,          // siempre arranca en el splash
+            startDestination = Rutas.SPLASH,
             modifier         = Modifier.padding(innerPadding)
         ) {
-
-            // ── SPLASH ────────────────────────────────────────────
             composable(Rutas.SPLASH) {
                 SplashScreen(
                     onSplashTerminado = {
@@ -106,7 +119,6 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
                 )
             }
 
-            // ── LOGIN ─────────────────────────────────────────────
             composable(Rutas.LOGIN) {
                 LoginScreen(
                     viewModel      = viewModel,
@@ -115,11 +127,10 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
                             popUpTo(Rutas.LOGIN) { inclusive = true }
                         }
                     },
-                    onIrARegistro  = { navController.navigate(Rutas.REGISTRO) }
+                    onIrARegistro = { navController.navigate(Rutas.REGISTRO) }
                 )
             }
 
-            // ── REGISTRO ──────────────────────────────────────────
             composable(Rutas.REGISTRO) {
                 RegisterScreen(
                     onRegistroExitoso = {
@@ -131,28 +142,24 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
                 )
             }
 
-            // ── HOME ──────────────────────────────────────────────
             composable(Rutas.HOME) {
                 HabitosScreen(
-                    viewModel  = viewModel,
-                    userId     = userId,
+                    viewModel    = viewModel,
+                    userId       = userId,
                     onVerDetalle = { habitoId ->
                         navController.navigate(Rutas.detalle(habitoId))
                     }
                 )
             }
 
-            // ── DESCUBRIR ─────────────────────────────────────────
             composable(Rutas.DESCUBRIR) {
                 DescubrirScreen(viewModel = viewModel, userId = userId)
             }
 
-            // ── LOGROS ────────────────────────────────────────────
             composable(Rutas.LOGROS) {
                 LogrosScreen(viewModel = viewModel, userId = userId)
             }
 
-            // ── DETALLE ───────────────────────────────────────────
             composable(
                 route     = Rutas.DETALLE,
                 arguments = listOf(navArgument("habitoId") { type = NavType.StringType })
@@ -161,6 +168,15 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
                 DetalleHabitoScreen(
                     habitoId  = habitoId,
                     viewModel = viewModel,
+                    onVolver  = { navController.popBackStack() }
+                )
+            }
+
+            // ✅ Nueva ruta — Crear Hábito personalizado
+            composable(Rutas.CREAR_HABITO) {
+                CrearHabitoScreen(
+                    viewModel = viewModel,
+                    userId    = userId,
                     onVolver  = { navController.popBackStack() }
                 )
             }

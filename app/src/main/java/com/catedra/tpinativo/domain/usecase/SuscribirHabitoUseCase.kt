@@ -4,11 +4,28 @@ import com.catedra.tpinativo.data.model.HabitoPlantilla
 import com.catedra.tpinativo.data.repository.HabitosRepository
 
 class SuscribirHabitoUseCase(
-    private val habitosRepository: HabitosRepository
+    private val habitosRepository: HabitosRepository,
+    private val programarRecordatorioUseCase: ProgramarRecordatorioUseCase
 ) {
-    // El "Invoke" permite ejecutar la clase como si fuera una función
-    suspend operator fun invoke(userId: String, plantilla: HabitoPlantilla) {
-        // Acá podemos meter reglas de negocio futuras (ej: validar que no esté suscrito ya)
-        habitosRepository.suscribirUsuarioAHabito(userId, plantilla)
+    suspend operator fun invoke(
+        userId: String,
+        plantilla: HabitoPlantilla,
+        horaRecordatorio: String? = null
+    ) {
+        // 1. Suscribir y obtener el ID del documento creado
+        val habitoId = habitosRepository.suscribirUsuarioAHabito(
+            userId = userId,
+            plantilla = plantilla,
+            horaRecordatorio = horaRecordatorio
+        )
+
+        // 2. Programar notificación si el usuario eligió hora
+        if (habitoId.isNotEmpty()) {
+            programarRecordatorioUseCase(
+                habitoId = habitoId,
+                nombreHabito = plantilla.nombre,
+                horaRecordatorio = horaRecordatorio
+            )
+        }
     }
 }

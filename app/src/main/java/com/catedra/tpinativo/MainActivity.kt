@@ -1,5 +1,9 @@
 package com.catedra.tpinativo
-
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
+import com.catedra.tpinativo.data.repository.NotificacionRepository
+import com.catedra.tpinativo.domain.usecase.ProgramarRecordatorioUseCase
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -28,18 +32,22 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        crearCanalNotificaciones()  // notificaicones
         enableEdgeToEdge() // Mantiene el diseño moderno de borde a borde
 
         // 1. Repositorios
         val habitosRepo = HabitosRepository()
         val logrosRepo = LogrosRepository()
         val desafiosRepo = DesafiosRepository() // 🚀 Instanciamos el repo de desafíos
+        val notificacionRepo = NotificacionRepository(this) // ← nuevo, necesita Context
 
         // 2. Casos de Uso (Capa de Dominio)
+        val programarRecordatorioUseCase = ProgramarRecordatorioUseCase(notificacionRepo) // ← notificacion
         val gestionarProgresoUseCase = GestionarProgresoHabitoUseCase(habitosRepo, logrosRepo)
-        val suscribirUseCase = SuscribirHabitoUseCase(habitosRepo)
+        val suscribirUseCase = SuscribirHabitoUseCase(habitosRepo, programarRecordatorioUseCase) //
         val obtenerDesafiosUseCase = ObtenerDesafiosCatalogoUseCase(desafiosRepo) // Nuevo caso de uso
         val suscribirseADesafioUseCase = SuscribirseADesafioUseCase(habitosRepo) //Nuevo caso de uso combo
+        // 3. Crear canal de notificaciones — AGREGAR ESTE MÉTODO en MainActivity
 
         // 3. Fábrica inyectando TODO el ecosistema completo
         habitosViewModel = ViewModelProvider(
@@ -49,7 +57,8 @@ class MainActivity : ComponentActivity() {
                 gestionarProgresoUseCase,
                 suscribirUseCase,
                 obtenerDesafiosUseCase,      // 🚀 Pasamos el 4to parámetro
-                suscribirseADesafioUseCase   // 🚀 Pasamos el 5to parámetro
+                suscribirseADesafioUseCase,   // 🚀 Pasamos el 5to parámetro
+                notificacionRepo
             )
         )[HabitosViewModel::class.java]
 
@@ -66,6 +75,20 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+    // 3. Crear canal de notificaciones — AGREGAR ESTE MÉTODO en MainActivity
+    private fun crearCanalNotificaciones() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val canal = NotificationChannel(
+                "notificacion_fcm",
+                "Recordatorios de Hábitos",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Recordatorios diarios de hábitos pendientes"
+            }
+            getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(canal)
         }
     }
 }

@@ -12,5 +12,6 @@ data class HabitoSuscrito(
     val esPersonalizado: Boolean = false,
     val horaRecordatorio: String? = null,
     //  null = suscripto individualmente, valor = viene de un desafío
-    val desafioId: String? = null
+    val desafioId: String? = null,
+    val comentario: String? = null
 )

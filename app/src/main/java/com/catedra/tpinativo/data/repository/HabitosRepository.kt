@@ -24,6 +24,36 @@ class HabitosRepository {
             emptyList()
         }
     }
+    suspend fun crearHabitoPersonalizado(
+        userId: String,
+        nombre: String,
+        categoria: String,
+        frecuencia: TipoFrecuencia,
+        horaRecordatorio: String? = null,
+        comentario: String? = null  // ✅ nuevo parámetro
+    ): String {
+        return try {
+            val nuevaSubRef = db.collection("usuarios_suscripciones").document()
+            val nuevoHabito = hashMapOf(
+                "id"              to nuevaSubRef.id,
+                "userId"          to userId,
+                "nombre"          to nombre,
+                "categoria"       to categoria,
+                "frecuencia"      to frecuencia.name,
+                "fechasCumplidas" to emptyList<String>(),
+                "esPersonalizado" to true
+            )
+            if (horaRecordatorio != null) nuevoHabito["horaRecordatorio"] = horaRecordatorio
+            if (comentario != null) nuevoHabito["comentario"] = comentario  // ✅
+
+            nuevaSubRef.set(nuevoHabito).await()
+            nuevaSubRef.id
+        } catch (e: Exception) {
+            android.util.Log.e("HabitosRepo", "Error creando hábito personal: ${e.localizedMessage}")
+            ""
+        }
+    }
+
 
     //  Hábitos del usuario (sin registros de desafíos)
     suspend fun obtenerSuscripcionesUsuario(userId: String): List<HabitoSuscrito> {
@@ -78,24 +108,24 @@ class HabitosRepository {
     suspend fun suscribirUsuarioAHabito(
         userId: String,
         plantilla: HabitoPlantilla,
-        desafioId: String? = null  //  null = individual, valor = viene de desafío
+        desafioId: String? = null,
+        horaRecordatorio: String? = null
     ): String {
         return try {
             val nuevaSubRef = db.collection("usuarios_suscripciones").document()
             val nuevaSuscripcion = hashMapOf(
-                "id"             to nuevaSubRef.id,
-                "plantillaId"    to plantilla.id,
-                "userId"         to userId,
-                "nombre"         to plantilla.nombre,
-                "categoria"      to plantilla.categoria,
-                "frecuencia"     to plantilla.frecuencia.name,
-                "fechasCumplidas" to emptyList<String>()
+                "id"              to nuevaSubRef.id,
+                "plantillaId"     to plantilla.id,
+                "userId"          to userId,
+                "nombre"          to plantilla.nombre,
+                "categoria"       to plantilla.categoria,
+                "frecuencia"      to plantilla.frecuencia.name,
+                "fechasCumplidas" to emptyList<String>(),
+                "esPersonalizado" to false  // ← siempre false, viene del catálogo
             )
 
-            // Solo agregamos desafioId si viene de un desafío
-            if (desafioId != null) {
-                nuevaSuscripcion["desafioId"] = desafioId
-            }
+            if (desafioId != null) nuevaSuscripcion["desafioId"] = desafioId
+            if (horaRecordatorio != null) nuevaSuscripcion["horaRecordatorio"] = horaRecordatorio
 
             nuevaSubRef.set(nuevaSuscripcion).await()
             nuevaSubRef.id
@@ -134,6 +164,7 @@ class HabitosRepository {
             android.util.Log.e("HabitosRepo", "Error eliminando suscripción: ${e.localizedMessage}")
         }
     }
+
     // Trae solo los registros de tipo DESAFIO
     suspend fun obtenerSuscripcionesDesafios(userId: String): List<Map<String, Any>> {
         return try {
@@ -160,6 +191,7 @@ class HabitosRepository {
             android.util.Log.e("HabitosRepo", "Error eliminando desafío: ${e.localizedMessage}")
         }
     }
+
 }
 
 //  Extensión privada — mapea doc → HabitoPlantilla usando doc.id

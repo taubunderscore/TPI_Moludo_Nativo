@@ -1,12 +1,15 @@
 package com.catedra.tpinativo.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.catedra.tpinativo.data.model.DesafioObjetivo
 import com.catedra.tpinativo.data.model.HabitoPlantilla
 import com.catedra.tpinativo.data.model.HabitoSuscrito
 import com.catedra.tpinativo.data.model.LogroUsuario
+import com.catedra.tpinativo.data.model.TipoFrecuencia
 import com.catedra.tpinativo.data.repository.HabitosRepository
+import com.catedra.tpinativo.data.repository.NotificacionRepository
 import com.catedra.tpinativo.domain.usecase.GestionarProgresoHabitoUseCase
 import com.catedra.tpinativo.domain.usecase.ObtenerDesafiosCatalogoUseCase
 import com.catedra.tpinativo.domain.usecase.SuscribirHabitoUseCase
@@ -82,7 +85,8 @@ class HabitosViewModel(
     private val suscribirHabitoUseCase: SuscribirHabitoUseCase,
     //  INYECTAMOS LOS DOS CASOS DE USO NUEVOS EN EL CONSTRUCTOR:
     private val obtenerDesafiosCatalogoUseCase: ObtenerDesafiosCatalogoUseCase,
-    private val suscribirseADesafioUseCase: SuscribirseADesafioUseCase
+    private val suscribirseADesafioUseCase: SuscribirseADesafioUseCase,
+    private val notificacionRepository: NotificacionRepository // ← notificacion
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HabitosUiState())
@@ -164,17 +168,17 @@ class HabitosViewModel(
         }
     }
     // Ejecuta la suscripción mediante su Caso de Uso y refresca el Home
-    fun suscribirseAHabito(userId: String, plantilla: HabitoPlantilla) {
+    fun suscribirseAHabito(userId: String, plantilla: HabitoPlantilla, horaRecordatorio: String? = null) {
         viewModelScope.launch {
             try {
-                suscribirHabitoUseCase(userId, plantilla)
-                _uiState.update { it.copy(mensajeInspirador = "¡Hábito activado! Pasito a pasito se llega lejos 🎯") }
+                suscribirHabitoUseCase(userId, plantilla, horaRecordatorio)
                 cargarHabitos(userId)
             } catch (e: Exception) {
-                // Error pasivo por si falla la red debo meterle algun pop up
+                _uiState.update { it.copy(error = "No se pudo suscribir al hábito") }
             }
         }
     }
+
 
     // Carga los logros y medallas del usuario de forma asíncrona
     fun cargarLogros(userId: String) {
@@ -223,6 +227,8 @@ class HabitosViewModel(
         viewModelScope.launch {
             try {
                 habitosRepository.eliminarSuscripcion(habitoId)
+                // ✅ Cancelamos el recordatorio si tenía uno programado
+                notificacionRepository.cancelarRecordatorio(habitoId)
                 cargarHabitos(userId)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "No se pudo dar de baja el hábito") }
@@ -238,21 +244,48 @@ class HabitosViewModel(
     ) {
         viewModelScope.launch {
             try {
-                // 1. Eliminamos cada hábito hijo
                 habitosHijos.forEach { habito ->
                     habitosRepository.eliminarSuscripcion(habito.id)
+                    // ✅ Cancelamos el recordatorio de cada hijo
+                    notificacionRepository.cancelarRecordatorio(habito.id)
                 }
-                // 2. Eliminamos el registro del desafío
                 habitosRepository.eliminarSuscripcionDesafio(userId, desafio.id)
-                // 3. Refrescamos
                 cargarHabitos(userId)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "No se pudo dar de baja el desafío") }
             }
         }
     }
+    fun crearHabitoPersonalizado(
+        userId: String,
+        nombre: String,
+        categoria: String,
+        frecuencia: TipoFrecuencia,
+        horaRecordatorio: String? = null,
+        comentario: String? = null  // ✅ nuevo parámetro
+    ) {
+        viewModelScope.launch {
+            try {
+                val habitoId = habitosRepository.crearHabitoPersonalizado(
+                    userId = userId,
+                    nombre = nombre,
+                    categoria = categoria,
+                    frecuencia = frecuencia,
+                    horaRecordatorio = horaRecordatorio,
+                    comentario = comentario
+                )
+                if (habitoId.isNotEmpty() && horaRecordatorio != null) {
+                    notificacionRepository.programarRecordatorio(habitoId, nombre, horaRecordatorio)
+                }
+                cargarHabitos(userId)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "No se pudo crear el hábito") }
+            }
+        }
+    }
 
 }
+
 
 // ==========================================
 //  LA FÁBRICA ACTUALIZADA PARA REPARTIR LOS NUEVOS CASOS DE USO:
@@ -260,20 +293,20 @@ class HabitosViewModelFactory(
     private val habitosRepository: HabitosRepository,
     private val gestionarProgresoHabitoUseCase: GestionarProgresoHabitoUseCase,
     private val suscribirHabitoUseCase: SuscribirHabitoUseCase,
-    // Agregar acá también las dependencias para la Factory
     private val obtenerDesafiosCatalogoUseCase: ObtenerDesafiosCatalogoUseCase,
-    private val suscribirseADesafioUseCase: SuscribirseADesafioUseCase
-) : androidx.lifecycle.ViewModelProvider.Factory {
+    private val suscribirseADesafioUseCase: SuscribirseADesafioUseCase,
+    private val notificacionRepository: NotificacionRepository // ← nuevo
+) : ViewModelProvider.Factory {
 
-    @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HabitosViewModel::class.java)) {
             return HabitosViewModel(
                 habitosRepository,
                 gestionarProgresoHabitoUseCase,
                 suscribirHabitoUseCase,
-                obtenerDesafiosCatalogoUseCase, //  Pasamos el caso de uso
-                suscribirseADesafioUseCase     //  Pasamos el caso de uso combo
+                obtenerDesafiosCatalogoUseCase,
+                suscribirseADesafioUseCase,
+                notificacionRepository // ← nuevo
             ) as T
         }
         throw IllegalArgumentException("Clase ViewModel desconocida")

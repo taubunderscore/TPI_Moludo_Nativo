@@ -1,4 +1,3 @@
-
 package com.catedra.tpinativo.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
@@ -40,7 +39,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     LaunchedEffect(categoriaSeleccionada) {
         if (categoriaSeleccionada == "🏆 Desafíos") {
             viewModel.cargarDesafios()
-            // Cargamos todas las categorías acumuladas para resolver nombres en las cards
+            // ✅ Cargamos todas las categorías acumuladas para resolver nombres en las cards
             viewModel.cargarTodasLasPlantillas()
         } else {
             viewModel.cargarCatalogoPorCategoria(categoriaSeleccionada)
@@ -62,7 +61,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Row con scroll horizontal — evita conflictos con LazyColumn
+            // ✅ Row con scroll horizontal — evita conflictos con LazyColumn
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -70,7 +69,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("🏆 Desafíos", "Estudio", "Salud", "Productividad", "Físico").forEach { cat ->
+                listOf("Físico", "Estudio", "Salud", "Productividad", "🏆 Desafíos").forEach { cat ->
                     FilterChip(
                         selected = categoriaSeleccionada == cat,
                         onClick = { categoriaSeleccionada = cat },
@@ -120,6 +119,24 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                         val (textoBoton, botonDeshabilitado) = state.obtenerEstadoHabitoIndividual(plantilla.id)
                         val yaSeCompletoHoy = textoBoton == "¡Completado! 💪"
 
+                        // ✅ Estado local del TimePicker — solo UI, no va al ViewModel
+                        var mostrarTimePicker by remember { mutableStateOf(false) }
+
+                        // ✅ Dialog del TimePicker
+                        if (mostrarTimePicker) {
+                            RecordatorioTimePickerDialog(
+                                nombreHabito = plantilla.nombre,
+                                onConfirmar = { hora ->
+                                    viewModel.suscribirseAHabito(userId, plantilla, hora)
+                                    mostrarTimePicker = false
+                                },
+                                onOmitir = {
+                                    viewModel.suscribirseAHabito(userId, plantilla, null)
+                                    mostrarTimePicker = false
+                                }
+                            )
+                        }
+
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -131,7 +148,8 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                                     Text("Frecuencia: ${plantilla.frecuencia}", style = MaterialTheme.typography.bodySmall)
                                 }
                                 Button(
-                                    onClick = { viewModel.suscribirseAHabito(userId, plantilla) },
+                                    // ✅ Abre TimePicker en vez de suscribir directo
+                                    onClick = { if (!botonDeshabilitado) mostrarTimePicker = true },
                                     enabled = !botonDeshabilitado || yaSeCompletoHoy,
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = if (yaSeCompletoHoy) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
@@ -150,7 +168,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     }
 }
 
-//  Card de desafío expandible — muestra los hábitos asociados al tocar
+// ✅ Card de desafío expandible — muestra los hábitos asociados al tocar
 @Composable
 fun DesafioCard(
     desafio: DesafioObjetivo,
