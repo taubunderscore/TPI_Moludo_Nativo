@@ -1,8 +1,15 @@
+import java.util.Properties
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) load(file.inputStream())
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.gms.google-services") // <-- por firebase google services
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -17,6 +24,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        manifestPlaceholders["MAPS_API_KEY"] = project.findProperty("MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
@@ -53,6 +62,17 @@ dependencies {
     // Actualizamos a la 2.8.5 para que sea compatible con el nuevo compilador de Kotlin
     implementation("androidx.navigation:navigation-compose:2.8.5")
 
+    // OkHttp — para llamadas HTTP a Cloudinary
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Coil — para mostrar la imagen seleccionada en el formulario
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    implementation("com.google.maps.android:maps-compose:4.3.3")
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+
+    implementation("androidx.compose.material:material-icons-extended")
+
     // Actualizamos a la 2.8.7 para que el ciclo de vida no choque con las versiones nuevas
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation(libs.androidx.core.ktx)
@@ -63,6 +83,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.play.services.location)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -1,14 +1,19 @@
 package com.catedra.tpinativo.domain.usecase
 
-import com.catedra.tpinativo.data.model.HabitoPlantilla
+import com.catedra.tpinativo.data.model.Habito
 import com.catedra.tpinativo.data.repository.HabitosRepository
 
+/**
+ * Suscribe al usuario a un hábito individual del catálogo.
+ * Regla de negocio: no suscribir si ya tiene ese habitoId activo.
+ */
 class SuscribirHabitoUseCase(
     private val habitosRepository: HabitosRepository
 ) {
-    // El "Invoke" permite ejecutar la clase como si fuera una función
-    suspend operator fun invoke(userId: String, plantilla: HabitoPlantilla) {
-        // Acá podemos meter reglas de negocio futuras (ej: validar que no esté suscrito ya)
-        habitosRepository.suscribirUsuarioAHabito(userId, plantilla)
+    suspend operator fun invoke(userId: String, habito: Habito) {
+        val yaActivo = habitosRepository.obtenerHabitosUsuario(userId, incluirDesafios = false)
+            .any { it.habitoId == habito.id }
+        if (yaActivo) return
+        habitosRepository.suscribirUsuarioAHabito(userId, habito)
     }
 }

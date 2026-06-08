@@ -1,4 +1,3 @@
-
 package com.catedra.tpinativo.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
@@ -16,23 +15,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.catedra.tpinativo.data.model.DesafioObjetivo
-import com.catedra.tpinativo.data.model.HabitoPlantilla
+import com.catedra.tpinativo.data.model.Desafio
+import com.catedra.tpinativo.data.model.Habito
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
-    val plantillas by viewModel.plantillasCatalogo.collectAsState()
-    val desafios by viewModel.desafiosCatalogo.collectAsState()
-    var categoriaSeleccionada by remember { mutableStateOf("Físico") }
-    val state by viewModel.uiState.collectAsState()
-    val uiState by viewModel.uiState.collectAsState()
+    val catalogoHabitos  by viewModel.catalogoHabitos.collectAsState()
+    val desafios         by viewModel.desafiosCatalogo.collectAsState()
+    val uiState          by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(state.mensajeInspirador) {
-        state.mensajeInspirador?.let { mensaje ->
-            snackbarHostState.showSnackbar(message = mensaje, duration = SnackbarDuration.Short)
+    var categoriaSeleccionada by remember { mutableStateOf("🏆 Desafíos") }
+
+    LaunchedEffect(uiState.mensajeInspirador) {
+        uiState.mensajeInspirador?.let {
+            snackbarHostState.showSnackbar(message = it, duration = SnackbarDuration.Short)
             viewModel.resetearMensajeInspirador()
         }
     }
@@ -40,8 +39,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     LaunchedEffect(categoriaSeleccionada) {
         if (categoriaSeleccionada == "🏆 Desafíos") {
             viewModel.cargarDesafios()
-            // Cargamos todas las categorías acumuladas para resolver nombres en las cards
-            viewModel.cargarTodasLasPlantillas()
+            viewModel.cargarTodosLosHabitosCatalogo()
         } else {
             viewModel.cargarCatalogoPorCategoria(categoriaSeleccionada)
         }
@@ -51,18 +49,18 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(if (categoriaSeleccionada == "🏆 Desafíos") "Desafíos Especiales" else "Catálogo de Hábitos")
+                    Text(
+                        if (categoriaSeleccionada == "🏆 Desafíos")
+                            "Desafíos Especiales" else "Catálogo de Hábitos"
+                    )
                 }
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier = Modifier.fillMaxSize().padding(innerPadding)
         ) {
-            // Row con scroll horizontal — evita conflictos con LazyColumn
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -73,70 +71,67 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                 listOf("🏆 Desafíos", "Estudio", "Salud", "Productividad", "Físico").forEach { cat ->
                     FilterChip(
                         selected = categoriaSeleccionada == cat,
-                        onClick = { categoriaSeleccionada = cat },
-                        label = {
-                            Text(
-                                text = cat,
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
+                        onClick  = { categoriaSeleccionada = cat },
+                        label    = { Text(cat, style = MaterialTheme.typography.labelMedium, maxLines = 1) },
+                        colors   = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            selectedLabelColor     = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     )
                 }
             }
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier              = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                verticalArrangement   = Arrangement.spacedBy(10.dp)
             ) {
                 if (categoriaSeleccionada == "🏆 Desafíos") {
                     items(desafios) { desafio ->
-                        val (textoBoton, botonDeshabilitado) = state.obtenerEstadoDesafio(desafio.id)
-                        val yaSeCumplioHoy = textoBoton == "¡Desafío Cumplido hoy! 🎉"
+                        val (textoBoton, botonDeshabilitado) = uiState.obtenerEstadoDesafio(desafio.id)
+                        val yaSeCumplioHoy = textoBoton == "¡Cumplido hoy! 🎉"
 
-                        // ✅ Card expandible con hábitos asociados
                         DesafioCard(
-                            desafio = desafio,
-                            plantillas = plantillas,
-                            textoBoton = textoBoton,
-                            botonDeshabilitado = botonDeshabilitado,
-                            yaSeCumplioHoy = yaSeCumplioHoy,
-                            onSuscribirse = { viewModel.suscribirseADesafio(userId, desafio) },
-                            onDarDeBaja = {
-                                viewModel.darDeBajaDesafioCompleto(
-                                    desafio = desafio,
-                                    habitosHijos = uiState.habitos.filter { it.desafioId == desafio.id },
-                                    userId = userId
-                                )
+                            desafio             = desafio,
+                            catalogoHabitos     = catalogoHabitos,
+                            textoBoton          = textoBoton,
+                            botonDeshabilitado  = botonDeshabilitado,
+                            yaSeCumplioHoy      = yaSeCumplioHoy,
+                            onSuscribirse       = { viewModel.suscribirseADesafio(userId, desafio) },
+                            onDarDeBaja         = {
+                                val hijosIds = uiState.habitos
+                                    .filter { it.desafioId == desafio.id }
+                                    .map { it.id }
+                                viewModel.darDeBajaDesafioCompleto(userId, desafio.id, hijosIds)
                             }
                         )
                     }
                 } else {
-                    items(plantillas) { plantilla ->
-                        val (textoBoton, botonDeshabilitado) = state.obtenerEstadoHabitoIndividual(plantilla.id)
+                    items(catalogoHabitos) { habito ->
+                        val (textoBoton, botonDeshabilitado) = uiState.obtenerEstadoHabitoIndividual(habito.id)
                         val yaSeCompletoHoy = textoBoton == "¡Completado! 💪"
 
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Row(
-                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
+                                modifier              = Modifier.padding(16.dp).fillMaxWidth(),
+                                verticalAlignment     = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(plantilla.nombre, style = MaterialTheme.typography.titleMedium)
-                                    Text("Frecuencia: ${plantilla.frecuencia}", style = MaterialTheme.typography.bodySmall)
+                                    Text(habito.nombre, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        text  = "${habito.categoria} · ${habito.frecuencia}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                                 Button(
-                                    onClick = { viewModel.suscribirseAHabito(userId, plantilla) },
-                                    enabled = !botonDeshabilitado || yaSeCompletoHoy,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (yaSeCompletoHoy) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary,
+                                    onClick  = { viewModel.suscribirseAHabito(userId, habito) },
+                                    enabled  = !botonDeshabilitado,
+                                    colors   = ButtonDefaults.buttonColors(
+                                        containerColor        = if (yaSeCompletoHoy) Color(0xFF4CAF50)
+                                        else MaterialTheme.colorScheme.primary,
                                         disabledContainerColor = Color.LightGray,
-                                        disabledContentColor = Color.DarkGray
+                                        disabledContentColor   = Color.DarkGray
                                     )
                                 ) {
                                     Text(textoBoton)
@@ -150,11 +145,10 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     }
 }
 
-//  Card de desafío expandible — muestra los hábitos asociados al tocar
 @Composable
 fun DesafioCard(
-    desafio: DesafioObjetivo,
-    plantillas: List<HabitoPlantilla>,
+    desafio: Desafio,
+    catalogoHabitos: List<Habito>,
     textoBoton: String,
     botonDeshabilitado: Boolean,
     yaSeCumplioHoy: Boolean,
@@ -164,24 +158,22 @@ fun DesafioCard(
     var expandida by remember { mutableStateOf(false) }
     var mostrarDialogoBaja by remember { mutableStateOf(false) }
 
-    val yaSuscripto = textoBoton == "Ya estás suscripto" || yaSeCumplioHoy
+    val yaSuscripto = botonDeshabilitado || yaSeCumplioHoy
 
-    // ✅ Diálogo de confirmación de baja en cascada
     if (mostrarDialogoBaja) {
         AlertDialog(
             onDismissRequest = { mostrarDialogoBaja = false },
-            title = { Text("⚠️ Dar de baja el desafío") },
-            text = {
+            title            = { Text("⚠️ Dar de baja el desafío") },
+            text             = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Se eliminarán de tu lista:")
-                    desafio.habitosRequeridos.forEach { plantillaId ->
-                        val nombre = plantillas.find { it.id == plantillaId }?.nombre ?: plantillaId
+                    desafio.habitosIds.forEach { habitoId ->
+                        val nombre = catalogoHabitos.find { it.id == habitoId }?.nombre ?: habitoId
                         Text("  •  $nombre")
                     }
-                    Text("  •  El desafío completo")
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Esta acción no se puede deshacer.",
+                        text  = "Esta acción no se puede deshacer.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -189,155 +181,96 @@ fun DesafioCard(
             },
             confirmButton = {
                 Button(
-                    onClick = {
-                        mostrarDialogoBaja = false
-                        onDarDeBaja()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                    onClick = { mostrarDialogoBaja = false; onDarDeBaja() },
+                    colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) { Text("Dar de baja") }
             },
             dismissButton = {
-                OutlinedButton(onClick = { mostrarDialogoBaja = false }) {
-                    Text("Cancelar")
-                }
+                OutlinedButton(onClick = { mostrarDialogoBaja = false }) { Text("Cancelar") }
             }
         )
     }
 
-    // Resolvemos los nombres de los hábitos asociados desde las plantillas cargadas
-    // Si no están cargadas mostramos el ID como fallback
-    val habitosAsociados = desafio.habitosRequeridos.map { plantillaId ->
-        plantillas.find { it.id == plantillaId }?.nombre ?: plantillaId
+    val habitosNombres = desafio.habitosIds.map { id ->
+        catalogoHabitos.find { it.id == id }?.nombre ?: id
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth()
-        ) {
-            // ── Cabecera siempre visible ──────────────────────────
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier              = Modifier.fillMaxWidth(),
+                verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Text(desafio.nombre, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = desafio.nombreDesafio,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = "${desafio.habitosRequeridos.size} hábitos en combo",
+                        text  = "${desafio.tipo.name.lowercase().replaceFirstChar { it.uppercase() }} · ${desafio.habitosIds.size} hábitos",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-
-                // Botón expandir/contraer
                 IconButton(onClick = { expandida = !expandida }) {
                     Icon(
-                        imageVector = if (expandida) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        imageVector     = if (expandida) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = if (expandida) "Contraer" else "Ver hábitos"
                     )
                 }
             }
 
-            // ── Detalle expandible ────────────────────────────────
             AnimatedVisibility(visible = expandida) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
                     if (desafio.descripcion.isNotEmpty()) {
                         Text(
-                            text = desafio.descripcion,
+                            text  = desafio.descripcion,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
-
-                    Text(
-                        text = "Hábitos incluidos:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
+                    Text("Hábitos incluidos:", style = MaterialTheme.typography.labelMedium)
                     Spacer(modifier = Modifier.height(6.dp))
-
-                    // Lista de hábitos del desafío
-                    habitosAsociados.forEach { nombreHabito ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "•  $nombreHabito",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                    habitosNombres.forEach { nombre ->
+                        Text("•  $nombre", style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 2.dp))
                     }
-
+                    if (desafio.meta > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text  = "🎯 Meta: ${desafio.meta} días",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Text(
-                        text = "🏅 Insignia al completar todos en el mismo día",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // ── Botones según estado ──────────────────────────
                     if (yaSuscripto) {
-                        // Ya suscripto — mostrar botón de baja
                         OutlinedButton(
-                            onClick = { mostrarDialogoBaja = true },
+                            onClick  = { mostrarDialogoBaja = true },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(
+                            colors   = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
                             )
-                        ) {
-                            Text("Dar de baja el desafío")
-                        }
+                        ) { Text("Dar de baja el desafío") }
                     } else {
-                        // No suscripto — mostrar botón de unirse
                         Button(
-                            onClick = onSuscribirse,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (yaSeCumplioHoy) Color(0xFF4CAF50)
-                                else MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Text(textoBoton)
-                        }
+                            onClick  = onSuscribirse,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(textoBoton) }
                     }
                 }
             }
 
-            // Botón visible cuando está contraída
             if (!expandida) {
                 Spacer(modifier = Modifier.height(8.dp))
                 if (yaSuscripto) {
                     OutlinedButton(
-                        onClick = { mostrarDialogoBaja = true },
+                        onClick  = { mostrarDialogoBaja = true },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Text("Dar de baja el desafío")
-                    }
+                        colors   = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Dar de baja el desafío") }
                 } else {
-                    Button(
-                        onClick = onSuscribirse,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Button(onClick = onSuscribirse, modifier = Modifier.fillMaxWidth()) {
                         Text(textoBoton)
                     }
                 }
