@@ -81,7 +81,39 @@ class HabitosPersonalizadosViewModel(
             )
         }
     }
-
+    // editar
+    fun editar(
+        userId: String,
+        habitoId: String,
+        nombre: String,
+        detalle: String,
+        categoria: CategoriaHabito,
+        horaRecordatorio: String
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(cargando = true, error = null) }
+            try {
+                repository.editar(habitoId, nombre, detalle, categoria, horaRecordatorio)
+                // Reprogramar la notificación con la nueva hora
+                NotificacionesService.programar(
+                    context          = context,
+                    habitoId         = habitoId,
+                    nombre           = nombre,
+                    detalle          = detalle.ifBlank { "Es hora de cumplir tu hábito 💪" },
+                    horaRecordatorio = horaRecordatorio
+                )
+                _uiState.update {
+                    it.copy(
+                        cargando     = false,
+                        exitoMensaje = "¡Hábito actualizado!"
+                    )
+                }
+                cargar(userId)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(cargando = false, error = e.localizedMessage) }
+            }
+        }
+    }
     // ─── Baja ────────────────────────────────────────────────────────────────
 
     fun desactivar(userId: String, habitoId: String) {

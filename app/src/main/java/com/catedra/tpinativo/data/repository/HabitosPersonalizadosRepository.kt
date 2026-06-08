@@ -86,4 +86,43 @@ class HabitosPersonalizadosRepository {
             Log.e(TAG, "desactivar: ${e.localizedMessage}")
         }
     }
+    suspend fun editar(
+        habitoId: String,
+        nombre: String,
+        detalle: String,
+        categoria: CategoriaHabito,
+        horaRecordatorio: String
+    ) {
+        try {
+            android.util.Log.d("EDITAR_REPO", "Editando doc: $habitoId")  // ← acá
+
+            coleccion.document(habitoId)
+                .update(
+                    mapOf(
+                        "nombre"           to nombre,
+                        "detalle"          to detalle,
+                        "categoria"        to categoria.name,
+                        "horaRecordatorio" to horaRecordatorio
+                    )
+                ).await()
+
+            // También actualizar el cache en usuario_habitos
+            val db = FirebaseFirestore.getInstance()
+            val docs = db.collection("usuario_habitos")
+                .whereEqualTo("habitoId", habitoId)
+                .get().await()
+
+            docs.documents.forEach { doc ->
+                doc.reference.update(
+                    mapOf(
+                        "nombreCache"    to nombre,
+                        "categoriaCache" to categoria.display,
+                        "horaRecordatorio" to horaRecordatorio
+                    )
+                ).await()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "editar: ${e.localizedMessage}")
+        }
+    }
 }

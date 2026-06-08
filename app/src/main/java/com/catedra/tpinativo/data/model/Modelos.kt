@@ -53,7 +53,8 @@ data class UsuarioHabito(
     val horaRecordatorio: String? = null,
     val fechaInicio: String = "",
     val activo: Boolean = true,
-    val desafioId: String? = null
+    val desafioId: String? = null,
+    val esPersonalizado: Boolean = false
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

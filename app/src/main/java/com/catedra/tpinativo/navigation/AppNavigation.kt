@@ -18,6 +18,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.catedra.tpinativo.ui.screens.DescubrirScreen
 import com.catedra.tpinativo.ui.screens.DetalleHabitoScreen
+import com.catedra.tpinativo.ui.screens.EditarHabitoScreen
 import com.catedra.tpinativo.ui.screens.HabitosScreen
 import com.catedra.tpinativo.ui.screens.LoginScreen
 import com.catedra.tpinativo.ui.screens.LogrosScreen
@@ -42,12 +43,28 @@ object Rutas {
     // Mapa del logro: lat y lng como String para evitar problemas de precisión en la ruta
     const val MAPA_LOGRO = "mapa_logro/{lat}/{lng}/{nombre}/{fecha}"
 
+    const val EDITAR_HABITO = "editar_habito/{habitoId}/{nombre}/{detalle}/{categoria}/{hora}"
+
+
     fun detalle(id: String) = "detalle/$id"
 
     fun mapaLogro(lat: Double, lng: Double, nombre: String, fecha: String?): String {
         val nombreEnc = URLEncoder.encode(nombre, StandardCharsets.UTF_8.toString())
         val fechaEnc  = URLEncoder.encode(fecha ?: "sin_fecha", StandardCharsets.UTF_8.toString())
         return "mapa_logro/$lat/$lng/$nombreEnc/$fechaEnc"
+    }
+    fun editarHabito(
+        habitoId: String,
+        nombre: String,
+        detalle: String,
+        categoria: String,
+        hora: String
+    ): String {
+        val nombreEnc   = URLEncoder.encode(nombre,   StandardCharsets.UTF_8.toString())
+        val detalleEnc  = URLEncoder.encode(detalle.ifBlank { " " }, StandardCharsets.UTF_8.toString())
+        val categoriaEnc = URLEncoder.encode(categoria, StandardCharsets.UTF_8.toString())
+        val horaEnc     = URLEncoder.encode(hora.ifBlank { "08:00" }, StandardCharsets.UTF_8.toString())
+        return "editar_habito/$habitoId/$nombreEnc/$detalleEnc/$categoriaEnc/$horaEnc"
     }
 }
 
@@ -186,10 +203,53 @@ fun AppNavigation(
                 arguments = listOf(navArgument("habitoId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val habitoId = backStackEntry.arguments?.getString("habitoId") ?: ""
+                val uiState  by viewModel.uiState.collectAsState()
+                val habito   = uiState.habitos.find { it.id == habitoId }
+
                 DetalleHabitoScreen(
                     habitoId  = habitoId,
                     viewModel = viewModel,
-                    onVolver  = { navController.popBackStack() }
+                    onVolver  = { navController.popBackStack() },
+                    onEditar  = if (habito?.esPersonalizado == true) {
+                        {
+                            navController.navigate(
+                                Rutas.editarHabito(
+                                    habitoId  = habito.habitoId,
+                                    nombre    = habito.nombreCache,
+                                    detalle   = habito.horaRecordatorio ?: "",
+                                    categoria = habito.categoriaCache,
+                                    hora      = habito.horaRecordatorio ?: "08:00"
+                                )
+                            )
+                        }
+                    } else null
+                )
+            }
+            // editar
+            composable(
+                route = Rutas.EDITAR_HABITO,
+                arguments = listOf(
+                    navArgument("habitoId")   { type = NavType.StringType },
+                    navArgument("nombre")     { type = NavType.StringType },
+                    navArgument("detalle")    { type = NavType.StringType },
+                    navArgument("categoria")  { type = NavType.StringType },
+                    navArgument("hora")       { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val habitoId  = backStackEntry.arguments?.getString("habitoId") ?: ""
+                val nombre    = URLDecoder.decode(backStackEntry.arguments?.getString("nombre") ?: "", StandardCharsets.UTF_8.toString())
+                val detalle   = URLDecoder.decode(backStackEntry.arguments?.getString("detalle") ?: "", StandardCharsets.UTF_8.toString()).trim()
+                val categoria = URLDecoder.decode(backStackEntry.arguments?.getString("categoria") ?: "", StandardCharsets.UTF_8.toString())
+                val hora      = URLDecoder.decode(backStackEntry.arguments?.getString("hora") ?: "", StandardCharsets.UTF_8.toString())
+
+                EditarHabitoScreen(
+                    userId           = userId,
+                    habitoId         = habitoId,
+                    nombreInicial    = nombre,
+                    detalleInicial   = detalle,
+                    categoriaInicial = categoria,
+                    horaInicial      = hora,
+                    onVolver         = { navController.popBackStack() }
                 )
             }
 

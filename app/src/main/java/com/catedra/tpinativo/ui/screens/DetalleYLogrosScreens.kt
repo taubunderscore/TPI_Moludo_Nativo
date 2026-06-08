@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -32,7 +33,10 @@ import java.time.format.DateTimeFormatter
 fun DetalleHabitoScreen(
     habitoId: String,
     viewModel: HabitosViewModel,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    onEditar: (() -> Unit)? = null
+
+
 ) {
     val uiState          by viewModel.uiState.collectAsStateWithLifecycle()
     val desafiosCatalogo by viewModel.desafiosCatalogo.collectAsStateWithLifecycle()
@@ -57,10 +61,12 @@ fun DetalleHabitoScreen(
         desafioAsociado   = desafioAsociado,
         habitosDelDesafio = habitosDelDesafio,
         onVolver          = onVolver,
+        onEditar = onEditar,
         onDarDeBajaSimple = {
             usuarioHabito?.let { viewModel.darDeBajaHabito(it.userId, it.id) }
             onVolver()
         },
+
         onDarDeBajaCascada = {
             if (desafioAsociado != null && usuarioHabito != null) {
                 viewModel.darDeBajaDesafioCompleto(
@@ -83,7 +89,8 @@ fun DetalleHabitoContent(
     habitosDelDesafio: List<UsuarioHabito>,
     onVolver: () -> Unit,
     onDarDeBajaSimple: () -> Unit,
-    onDarDeBajaCascada: () -> Unit
+    onDarDeBajaCascada: () -> Unit,
+    onEditar: (() -> Unit)? = null  //
 ) {
     var mostrarDialogo by remember { mutableStateOf(false) }
 
@@ -146,11 +153,21 @@ fun DetalleHabitoContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+
                     IconButton(onClick = onVolver) {
                         Icon(Icons.Default.Close, contentDescription = "Volver")
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Detalle del Hábito", style = MaterialTheme.typography.headlineSmall)
+                }
+                if (onEditar != null && usuarioHabito?.esPersonalizado == true) {
+                    IconButton(onClick = onEditar) {
+                        Icon(
+                            imageVector        = Icons.Default.Edit,
+                            contentDescription = "Editar",
+                            tint               = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
                 IconButton(onClick = { mostrarDialogo = true }, enabled = usuarioHabito != null) {
                     Icon(
@@ -160,6 +177,7 @@ fun DetalleHabitoContent(
                     )
                 }
             }
+
         }
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(24.dp)) {
