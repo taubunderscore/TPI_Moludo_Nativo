@@ -29,15 +29,17 @@ import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 object Rutas {
-    const val SPLASH       = "splash"
-    const val LOGIN        = "login"
-    const val REGISTRO     = "registro"
-    const val HOME         = "home"
-    const val DESCUBRIR    = "descubrir"
-    const val LOGROS       = "logros"
-    const val DETALLE      = "detalle/{habitoId}"
-    const val CREAR_HABITO = "crear_habito"  // ✅ nueva ruta
+    const val SPLASH        = "splash"
+    const val LOGIN         = "login"
+    const val REGISTRO      = "registro"
+    const val HOME          = "home"
+    const val DESCUBRIR     = "descubrir"
+    const val LOGROS        = "logros"
+    const val DETALLE       = "detalle/{habitoId}"
+    const val CREAR_HABITO  = "crear_habito"
+    const val EDITAR_HABITO = "editar_habito/{habitoId}"  // ✅ nueva ruta
     fun detalle(id: String) = "detalle/$id"
+    fun editarHabito(id: String) = "editar_habito/$id"    // ✅ helper
 }
 
 data class ItemBarraNavegacion(
@@ -168,11 +170,29 @@ fun AppNavigation(viewModel: HabitosViewModel, userId: String) {
                 DetalleHabitoScreen(
                     habitoId  = habitoId,
                     viewModel = viewModel,
-                    onVolver  = { navController.popBackStack() }
+                    onVolver  = { navController.popBackStack() },
+                    onEditar  = { navController.navigate(Rutas.editarHabito(habitoId)) }
                 )
             }
 
-            // ✅ Nueva ruta — Crear Hábito personalizado
+            // ✅ Ruta editar — carga el hábito y abre CrearHabitoScreen precargada
+            composable(
+                route     = Rutas.EDITAR_HABITO,
+                arguments = listOf(navArgument("habitoId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val habitoId = backStackEntry.arguments?.getString("habitoId") ?: ""
+                val uiState by viewModel.uiState.collectAsState()
+                val habito = uiState.habitos.find { it.id == habitoId }
+
+                CrearHabitoScreen(
+                    viewModel    = viewModel,
+                    userId       = userId,
+                    onVolver     = { navController.popBackStack() },
+                    habitoEditar = habito
+                )
+            }
+
+            // ✅ Ruta crear hábito personalizado
             composable(Rutas.CREAR_HABITO) {
                 CrearHabitoScreen(
                     viewModel = viewModel,

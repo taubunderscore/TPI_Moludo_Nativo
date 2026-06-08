@@ -47,15 +47,18 @@ fun LogrosScreen(viewModel: HabitosViewModel, userId: String) {
     val uiState by viewModel.uiState.collectAsState()
 
     // Filtramos hábitos individuales con al menos 1 día cumplido para mostrar racha
-    val habitosConRacha = uiState.habitos
+    val todosLosHabitos by viewModel.todosLosHabitos.collectAsState()
+    val habitosConRacha = todosLosHabitos
         .filter { it.fechasCumplidas.isNotEmpty() }
         .map { habito -> habito to calcularRachaActual(habito.fechasCumplidas) }
         .filter { (_, racha) -> racha > 0 }
         .sortedByDescending { (_, racha) -> racha }
 
+
+
     LaunchedEffect(Unit) {
         viewModel.cargarLogros(userId)
-        viewModel.cargarHabitos(userId)
+        viewModel.cargarTodosLosHabitos(userId)
     }
 
     Scaffold(
@@ -64,7 +67,9 @@ fun LogrosScreen(viewModel: HabitosViewModel, userId: String) {
 
         if (logros.isEmpty() && habitosConRacha.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -100,7 +105,9 @@ fun LogrosScreen(viewModel: HabitosViewModel, userId: String) {
                             )
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -146,7 +153,9 @@ fun LogrosScreen(viewModel: HabitosViewModel, userId: String) {
                             )
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(

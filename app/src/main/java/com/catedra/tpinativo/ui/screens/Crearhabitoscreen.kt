@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.catedra.tpinativo.data.model.HabitoSuscrito
 import com.catedra.tpinativo.data.model.TipoFrecuencia
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 
@@ -18,14 +19,26 @@ import com.catedra.tpinativo.viewmodel.HabitosViewModel
 fun CrearHabitoScreen(
     viewModel: HabitosViewModel,
     userId: String,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    habitoEditar: HabitoSuscrito? = null  // ✅ null = crear, valor = editar
 ) {
-    var nombre by remember { mutableStateOf("") }
-    var comentario by remember { mutableStateOf("") }
-    var categoriaSeleccionada by remember { mutableStateOf("Físico") }
-    var frecuenciaSeleccionada by remember { mutableStateOf(TipoFrecuencia.DIARIO) }
+    // ✅ Si estamos editando precargamos los valores, sino arrancamos vacío
+    val esEdicion = habitoEditar != null
+
+    var nombre by remember { mutableStateOf(habitoEditar?.nombre ?: "") }
+    var comentario by remember { mutableStateOf(habitoEditar?.comentario ?: "") }
+    var categoriaSeleccionada by remember {
+        mutableStateOf(habitoEditar?.categoria ?: "Físico")
+    }
+    var frecuenciaSeleccionada by remember {
+        mutableStateOf(
+            habitoEditar?.frecuencia?.let {
+                runCatching { TipoFrecuencia.valueOf(it) }.getOrDefault(TipoFrecuencia.DIARIO)
+            } ?: TipoFrecuencia.DIARIO
+        )
+    }
     var mostrarTimePicker by remember { mutableStateOf(false) }
-    var horaRecordatorio by remember { mutableStateOf<String?>(null) }
+    var horaRecordatorio by remember { mutableStateOf(habitoEditar?.horaRecordatorio) }
 
     val categorias = listOf("Físico", "Estudio", "Salud", "Productividad")
     val frecuencias = listOf(TipoFrecuencia.DIARIO, TipoFrecuencia.SEMANAL, TipoFrecuencia.MENSUAL)
@@ -33,11 +46,12 @@ fun CrearHabitoScreen(
     if (mostrarTimePicker) {
         RecordatorioTimePickerDialog(
             nombreHabito = nombre.ifEmpty { "tu hábito" },
-            onConfirmar = { hora ->
+            frecuenciaDefault = frecuenciaSeleccionada,
+            onConfirmar = { hora, _ ->
                 horaRecordatorio = hora
                 mostrarTimePicker = false
             },
-            onOmitir = {
+            onOmitir = { _ ->
                 horaRecordatorio = null
                 mostrarTimePicker = false
             }
@@ -47,7 +61,8 @@ fun CrearHabitoScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nuevo Hábito") },
+                // ✅ Título dinámico según modo
+                title = { Text(if (esEdicion) "Editar Hábito" else "Nuevo Hábito") },
                 navigationIcon = {
                     IconButton(onClick = onVolver) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
@@ -136,27 +151,40 @@ fun CrearHabitoScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Botón Guardar ────────────────────────────────────
+            // ── Botón Guardar / Guardar cambios ──────────────────
             Button(
                 onClick = {
                     if (nombre.isNotBlank()) {
-                        // ✅ Llama al método específico para hábitos personalizados
-                        // No pasa por HabitoPlantilla — va directo a usuarios_suscripciones
-                        viewModel.crearHabitoPersonalizado(
-                            userId = userId,
-                            nombre = nombre.trim(),
-                            categoria = categoriaSeleccionada,
-                            frecuencia = frecuenciaSeleccionada,
-                            horaRecordatorio = horaRecordatorio,
-                            comentario = comentario.trim().ifEmpty { null }
-                        )
+                        if (esEdicion) {
+                            // ✅ Modo edición — actualizar hábito existente
+                            viewModel.editarHabito(
+                                habitoId = habitoEditar!!.id,
+                                userId = userId,
+                                nombre = nombre.trim(),
+                                categoria = categoriaSeleccionada,
+                                frecuencia = frecuenciaSeleccionada,
+                                horaRecordatorio = horaRecordatorio,
+                                comentario = comentario.trim().ifEmpty { null }
+                            )
+                        } else {
+                            // ✅ Modo creación — nuevo hábito personalizado
+                            viewModel.crearHabitoPersonalizado(
+                                userId = userId,
+                                nombre = nombre.trim(),
+                                categoria = categoriaSeleccionada,
+                                frecuencia = frecuenciaSeleccionada,
+                                horaRecordatorio = horaRecordatorio,
+                                comentario = comentario.trim().ifEmpty { null }
+                            )
+                        }
                         onVolver()
                     }
                 },
                 enabled = nombre.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Guardar hábito")
+                // ✅ Texto dinámico según modo
+                Text(if (esEdicion) "Guardar cambios" else "Guardar hábito")
             }
         }
     }

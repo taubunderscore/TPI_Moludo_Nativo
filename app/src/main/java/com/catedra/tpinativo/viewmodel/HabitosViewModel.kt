@@ -28,6 +28,7 @@ data class HabitosUiState(
     val ultimoDesafioLogrado: String? = null,
     val mensajeInspirador: String? = null, // El que sumamos para el cartel motivacional
     val suscripcionesDesafios: List<Map<String, Any>> = emptyList(), // ← nuevo
+    val mensajeHabitoCumplido: String? = null
 
 ) {
     /**
@@ -122,12 +123,47 @@ class HabitosViewModel(
             }
         }
     }
-
+    fun editarHabito(
+        habitoId: String,
+        userId: String,
+        nombre: String,
+        categoria: String,
+        frecuencia: TipoFrecuencia,
+        horaRecordatorio: String?,
+        comentario: String?
+    ) {
+        viewModelScope.launch {
+            try {
+                habitosRepository.editarHabito(
+                    habitoId = habitoId,
+                    nombre = nombre,
+                    categoria = categoria,
+                    frecuencia = frecuencia,
+                    horaRecordatorio = horaRecordatorio,
+                    comentario = comentario
+                )
+                // Reprogramar notificación si cambió la hora
+                if (horaRecordatorio != null) {
+                    notificacionRepository.programarRecordatorio(habitoId, nombre, horaRecordatorio)
+                } else {
+                    notificacionRepository.cancelarRecordatorio(habitoId)
+                }
+                cargarHabitos(userId)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "No se pudo editar el hábito") }
+            }
+        }
+    }
+    fun resetearMensajeHabitoCumplido() {
+        _uiState.update { it.copy(mensajeHabitoCumplido = null) }
+    }
     // Se ejecuta al tocar el checkbox
     fun alternarEstadoHabito(habito: HabitoSuscrito) {
         viewModelScope.launch {
             try {
                 val resultado = gestionarProgresoHabitoUseCase.ejecutar(habito)
+                val hoy = java.time.LocalDate.now()
+                    .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
 
                 _uiState.update { estadoActual ->
                     val listaActualizada = estadoActual.habitos.map { item ->
@@ -135,7 +171,11 @@ class HabitosViewModel(
                     }
                     estadoActual.copy(
                         habitos = listaActualizada,
-                        ultimoDesafioLogrado = if (resultado.desafioDesbloqueado) resultado.nombreDesafio else null
+                        ultimoDesafioLogrado = if (resultado.desafioDesbloqueado) resultado.nombreDesafio else null,
+                        // ✅ Solo mensaje si se TILDÓ (no si se destildó)
+                        mensajeHabitoCumplido = if (resultado.habitoActualizado.fechasCumplidas.contains(hoy))
+                            "✅ ${resultado.habitoActualizado.nombre} cumplido hoy! 💪"
+                        else null
                     )
                 }
             } catch (e: Exception) {
@@ -168,14 +208,34 @@ class HabitosViewModel(
         }
     }
     // Ejecuta la suscripción mediante su Caso de Uso y refresca el Home
-    fun suscribirseAHabito(userId: String, plantilla: HabitoPlantilla, horaRecordatorio: String? = null) {
+    fun suscribirseAHabito(
+        userId: String,
+        plantilla: HabitoPlantilla,
+        horaRecordatorio: String? = null,
+        frecuencia: TipoFrecuencia? = null  // ← nuevo, null = usa la de la plantilla
+    ) {
         viewModelScope.launch {
             try {
-                suscribirHabitoUseCase(userId, plantilla, horaRecordatorio)
+                suscribirHabitoUseCase(
+                    userId = userId,
+                    plantilla = plantilla,
+                    horaRecordatorio = horaRecordatorio,
+                    frecuencia = frecuencia ?: plantilla.frecuencia
+                )
                 cargarHabitos(userId)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "No se pudo suscribir al hábito") }
             }
+        }
+    }
+
+    private val _todosLosHabitos = MutableStateFlow<List<HabitoSuscrito>>(emptyList())
+    val todosLosHabitos: StateFlow<List<HabitoSuscrito>> = _todosLosHabitos.asStateFlow()
+
+    fun cargarTodosLosHabitos(userId: String) {
+        viewModelScope.launch {
+            val lista = habitosRepository.obtenerTodosLosHabitos(userId)
+            _todosLosHabitos.value = lista
         }
     }
 
@@ -185,12 +245,14 @@ class HabitosViewModel(
         viewModelScope.launch {
             try {
                 val lista = logrosRepository.obtenerLogrosUsuario(userId)
+
                 _logrosUsuario.value = lista
             } catch (e: Exception) {
                 // Error pasivo por si falla la red
             }
         }
     }
+
 
     // Función para limpiar el cartel de festejo una vez mostrado
     fun resetearAlertaDesafio() {

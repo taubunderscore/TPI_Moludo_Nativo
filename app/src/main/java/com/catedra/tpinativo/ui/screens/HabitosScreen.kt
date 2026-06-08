@@ -15,6 +15,26 @@ import com.catedra.tpinativo.data.model.HabitoSuscrito
 import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.launch
+
+// ✅ Calcula si el hábito está cumplido según su frecuencia
+fun estaComplidoSegunFrecuencia(habito: HabitoSuscrito, hoy: String): Boolean {
+    if (habito.fechasCumplidas.isEmpty()) return false
+    return when (habito.frecuencia.uppercase()) {
+        "SEMANAL" -> habito.fechasCumplidas.any { fecha ->
+            runCatching {
+                ChronoUnit.DAYS.between(LocalDate.parse(fecha), LocalDate.now()) < 7
+            }.getOrDefault(false)
+        }
+        "MENSUAL" -> habito.fechasCumplidas.any { fecha ->
+            runCatching {
+                ChronoUnit.DAYS.between(LocalDate.parse(fecha), LocalDate.now()) < 30
+            }.getOrDefault(false)
+        }
+        else -> habito.fechasCumplidas.contains(hoy) // DIARIO
+    }
+}
 
 @Composable
 fun HabitosScreen(
@@ -24,10 +44,25 @@ fun HabitosScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val desafios by viewModel.desafiosCatalogo.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(userId) {
         viewModel.cargarHabitos(userId)
         viewModel.cargarDesafios()
+    }
+
+    // ✅ Snackbar cuando se cumple un hábito
+    LaunchedEffect(uiState.mensajeHabitoCumplido) {
+        uiState.mensajeHabitoCumplido?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = it,
+                    duration = SnackbarDuration.Short
+                )
+            }
+            viewModel.resetearMensajeHabitoCumplido()
+        }
     }
 
     uiState.ultimoDesafioLogrado?.let { nombreDesafio ->
@@ -47,7 +82,8 @@ fun HabitosScreen(
         error = uiState.error,
         onVerDetalle = onVerDetalle,
         onAlternarEstado = { habito -> viewModel.alternarEstadoHabito(habito) },
-        desafios = desafios
+        desafios = desafios,
+        snackbarHostState = snackbarHostState
     )
 }
 
@@ -59,7 +95,8 @@ fun HabitosContent(
     error: String?,
     onVerDetalle: (String) -> Unit,
     onAlternarEstado: (HabitoSuscrito) -> Unit,
-    desafios: List<com.catedra.tpinativo.data.model.DesafioObjetivo> = emptyList()
+    desafios: List<com.catedra.tpinativo.data.model.DesafioObjetivo> = emptyList(),
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
 ) {
     var filtroSeleccionado by remember { mutableStateOf("TODOS") }
     var textoBuscado by remember { mutableStateOf("") }
@@ -67,17 +104,19 @@ fun HabitosContent(
 
     val habitosFiltrados = habitos.filter { habito ->
         val cumpleTexto = habito.nombre.contains(textoBuscado, ignoreCase = true)
-        val estaCumplidoHoy = habito.fechasCumplidas.contains(hoy)
+        val estaCumplido = estaComplidoSegunFrecuencia(habito, hoy)
         val cumpleEstado = when (filtroSeleccionado) {
-            "PENDIENTES" -> !estaCumplidoHoy
-            "CUMPLIDOS"  -> estaCumplidoHoy
+            "PENDIENTES" -> !estaCumplido
+            "CUMPLIDOS"  -> estaCumplido
             else         -> true
         }
+
         cumpleTexto && cumpleEstado
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Mis Hábitos Diarios") }) }
+        topBar = { TopAppBar(title = { Text("Mis Hábitos Diarios") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) }  // ✅
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -134,7 +173,7 @@ fun HabitosContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(habitosFiltrados) { habito ->
-                            val cumplidoHoy = habito.fechasCumplidas.contains(hoy)
+                            val cumplidoHoy = estaComplidoSegunFrecuencia(habito, hoy)
 
                             // ✅ Usamos desafioId para evitar falsos positivos
                             val nombreDesafioAsociado = habito.desafioId?.let { desafioId ->
@@ -156,7 +195,7 @@ fun HabitosContent(
     }
 }
 
-//  Card extraída como composable propio — para poder como en el lab 1 web reutilizable
+// ✅ Card extraída como composable propio — más limpio y reutilizable
 @Composable
 fun HabitoCard(
     habito: HabitoSuscrito,
@@ -188,7 +227,7 @@ fun HabitoCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // insignia del desafío — solo aparece si el hábito pertenece a uno
+                // ✅ Badge del desafío — solo aparece si el hábito pertenece a uno
                 if (nombreDesafioAsociado != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Surface(

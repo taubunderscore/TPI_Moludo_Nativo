@@ -126,12 +126,13 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                         if (mostrarTimePicker) {
                             RecordatorioTimePickerDialog(
                                 nombreHabito = plantilla.nombre,
-                                onConfirmar = { hora ->
-                                    viewModel.suscribirseAHabito(userId, plantilla, hora)
+                                frecuenciaDefault = plantilla.frecuencia,
+                                onConfirmar = { hora, frecuencia ->
+                                    viewModel.suscribirseAHabito(userId, plantilla, hora, frecuencia)
                                     mostrarTimePicker = false
                                 },
-                                onOmitir = {
-                                    viewModel.suscribirseAHabito(userId, plantilla, null)
+                                onOmitir = { frecuencia ->
+                                    viewModel.suscribirseAHabito(userId, plantilla, null, frecuencia)
                                     mostrarTimePicker = false
                                 }
                             )

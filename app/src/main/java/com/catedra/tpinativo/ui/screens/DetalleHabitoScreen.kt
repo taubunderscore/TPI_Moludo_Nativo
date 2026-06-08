@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +31,7 @@ fun DetalleHabitoScreenPreview() {
             desafioAsociado = null,
             habitosDelDesafio = emptyList(),
             onVolver = {},
+            onEditar = {},
             onDarDeBajaSimple = {},
             onDarDeBajaCascada = {}
         )
@@ -40,19 +42,20 @@ fun DetalleHabitoScreenPreview() {
 fun DetalleHabitoScreen(
     habitoId: String,
     viewModel: HabitosViewModel,
-    onVolver: () -> Unit
+    onVolver: () -> Unit,
+    onEditar: () -> Unit  // ✅ nuevo callback
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val desafios by viewModel.desafiosCatalogo.collectAsStateWithLifecycle()
     val habitoReal = uiState.habitos.find { it.id == habitoId }
 
-    // Solo es hábito de desafío si tiene desafioId — no por plantillaId
+    // ✅ Solo es hábito de desafío si tiene desafioId — no por plantillaId
     // Esto evita falsos positivos cuando el usuario se suscribe individualmente
     val desafioAsociado = habitoReal?.desafioId?.let { desafioId ->
         desafios.find { it.id == desafioId }
     }
 
-    //  Si tiene desafío, resolvemos los nombres de los otros hábitos hijos
+    // ✅ Si tiene desafío, resolvemos los nombres de los otros hábitos hijos
     val habitosDelDesafio = desafioAsociado?.habitosRequeridos?.mapNotNull { plantillaId ->
         uiState.habitos.find { it.plantillaId == plantillaId }
     } ?: emptyList()
@@ -62,13 +65,12 @@ fun DetalleHabitoScreen(
         desafioAsociado = desafioAsociado,
         habitosDelDesafio = habitosDelDesafio,
         onVolver = onVolver,
+        onEditar = onEditar,
         onDarDeBajaSimple = {
-            // Hábito individual — baja directa
             viewModel.darDeBajaHabito(habitoId = habitoId, userId = habitoReal?.userId ?: "")
             onVolver()
         },
         onDarDeBajaCascada = {
-            // Hábito de desafío — baja en cascada de tod o  el desafio
             viewModel.darDeBajaDesafioCompleto(
                 desafio = desafioAsociado!!,
                 habitosHijos = habitosDelDesafio,
@@ -85,16 +87,17 @@ fun DetalleHabitoContent(
     desafioAsociado: DesafioObjetivo?,
     habitosDelDesafio: List<HabitoSuscrito>,
     onVolver: () -> Unit,
+    onEditar: () -> Unit,  // ✅ nuevo
     onDarDeBajaSimple: () -> Unit,
     onDarDeBajaCascada: () -> Unit
 ) {
     val hoy = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
     var mostrarDialogo by remember { mutableStateOf(false) }
 
-    // Diálogo adaptativo según si tiene desafío o no
+    // ✅ Diálogo adaptativo según si tiene desafío o no
     if (mostrarDialogo) {
         if (desafioAsociado != null) {
-            // caso hábito atado a desafío
+            // Caso C — hábito atado a desafío
             AlertDialog(
                 onDismissRequest = { mostrarDialogo = false },
                 title = { Text("⚠️ Hábito con desafío asociado") },
@@ -187,15 +190,32 @@ fun DetalleHabitoContent(
                         style = MaterialTheme.typography.headlineSmall
                     )
                 }
-                IconButton(
-                    onClick = { mostrarDialogo = true },
-                    enabled = habito != null
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Dar de baja",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // ✅ Botón editar
+                    IconButton(
+                        onClick = onEditar,
+                        enabled = habito != null && habito.desafioId == null
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Editar",
+                            tint = if (habito != null && habito.desafioId == null)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                    }
+                    // Botón dar de baja
+                    IconButton(
+                        onClick = { mostrarDialogo = true },
+                        enabled = habito != null
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Dar de baja",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
         }

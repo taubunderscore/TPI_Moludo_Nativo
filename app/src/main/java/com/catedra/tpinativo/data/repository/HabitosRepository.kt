@@ -35,6 +35,7 @@ class HabitosRepository {
         return try {
             val nuevaSubRef = db.collection("usuarios_suscripciones").document()
             val nuevoHabito = hashMapOf(
+                "activo" to true,
                 "id"              to nuevaSubRef.id,
                 "userId"          to userId,
                 "nombre"          to nombre,
@@ -54,12 +55,25 @@ class HabitosRepository {
         }
     }
 
-
+    suspend fun obtenerTodosLosHabitos(userId: String): List<HabitoSuscrito> {
+        return try {
+            db.collection("usuarios_suscripciones")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+                .documents
+                .filter { doc -> !doc.contains("tipo") } // excluir registros de desafíos
+                .mapNotNull { doc -> doc.toObject(HabitoSuscrito::class.java) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
     //  Hábitos del usuario (sin registros de desafíos)
     suspend fun obtenerSuscripcionesUsuario(userId: String): List<HabitoSuscrito> {
         return try {
             db.collection("usuarios_suscripciones")
                 .whereEqualTo("userId", userId)
+                .whereEqualTo("activo", true)
                 .get()
                 .await()
                 .documents
@@ -109,21 +123,23 @@ class HabitosRepository {
         userId: String,
         plantilla: HabitoPlantilla,
         desafioId: String? = null,
-        horaRecordatorio: String? = null
+        horaRecordatorio: String? = null,
+        frecuenciaOverride: TipoFrecuencia? = null  // ← si no es null usa esta frecuencia
     ): String {
         return try {
             val nuevaSubRef = db.collection("usuarios_suscripciones").document()
+            val frecuenciaFinal = frecuenciaOverride ?: plantilla.frecuencia
             val nuevaSuscripcion = hashMapOf(
                 "id"              to nuevaSubRef.id,
                 "plantillaId"     to plantilla.id,
                 "userId"          to userId,
                 "nombre"          to plantilla.nombre,
                 "categoria"       to plantilla.categoria,
-                "frecuencia"      to plantilla.frecuencia.name,
+                "frecuencia"      to frecuenciaFinal.name,  // ← usa la elegida por el usuario
                 "fechasCumplidas" to emptyList<String>(),
-                "esPersonalizado" to false  // ← siempre false, viene del catálogo
+                "esPersonalizado" to false,
+                "activo"          to true
             )
-
             if (desafioId != null) nuevaSuscripcion["desafioId"] = desafioId
             if (horaRecordatorio != null) nuevaSuscripcion["horaRecordatorio"] = horaRecordatorio
 
@@ -134,7 +150,6 @@ class HabitosRepository {
             ""
         }
     }
-
     // Acceso directo por ID de documento — sin campo "id" en Firestore lo cambie porque era quilombo el doble id
     suspend fun obtenerPlantillaPorId(plantillaId: String): HabitoPlantilla? {
         return try {
@@ -153,18 +168,17 @@ class HabitosRepository {
             null
         }
     }
-    // Elimina una suscripción individual por ID de documento
+    // Elimina una suscripción individual por ID de documento, hace soft delete, cambio campo a
     suspend fun eliminarSuscripcion(habitoId: String) {
         try {
             db.collection("usuarios_suscripciones")
                 .document(habitoId)
-                .delete()
+                .update("activo", false)
                 .await()
         } catch (e: Exception) {
-            android.util.Log.e("HabitosRepo", "Error eliminando suscripción: ${e.localizedMessage}")
+            android.util.Log.e("HabitosRepo", "Error dando de baja: ${e.localizedMessage}")
         }
     }
-
     // Trae solo los registros de tipo DESAFIO
     suspend fun obtenerSuscripcionesDesafios(userId: String): List<Map<String, Any>> {
         return try {
@@ -179,7 +193,33 @@ class HabitosRepository {
             emptyList()
         }
     }
+    suspend fun editarHabito(
+        habitoId: String,
+        nombre: String,
+        categoria: String,
+        frecuencia: TipoFrecuencia,
+        horaRecordatorio: String?,
+        comentario: String?
+    ) {
+        try {
+            val campos = hashMapOf<String, Any?>(
+                "nombre"           to nombre,
+                "categoria"        to categoria,
+                "frecuencia"       to frecuencia.name,
+                "horaRecordatorio" to horaRecordatorio,
+                "comentario"       to comentario
+            )
+            // Eliminamos campos null para no sobreescribir con null
+            val camposLimpios = campos.filterValues { it != null }
 
+            db.collection("usuarios_suscripciones")
+                .document(habitoId)
+                .update(camposLimpios)
+                .await()
+        } catch (e: Exception) {
+            android.util.Log.e("HabitosRepo", "Error editando hábito: ${e.localizedMessage}")
+        }
+    }
     // Elimina el registro del desafío de usuarios_suscripciones
     suspend fun eliminarSuscripcionDesafio(userId: String, desafioId: String) {
         try {
