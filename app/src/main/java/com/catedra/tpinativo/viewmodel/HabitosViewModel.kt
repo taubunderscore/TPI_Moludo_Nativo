@@ -12,6 +12,7 @@ import com.catedra.tpinativo.data.repository.CumplimientosRepository
 import com.catedra.tpinativo.data.repository.DesafiosRepository
 import com.catedra.tpinativo.data.repository.HabitosRepository
 import com.catedra.tpinativo.data.repository.UserRepository
+import com.catedra.tpinativo.domain.service.NotificacionesService
 import com.catedra.tpinativo.domain.usecase.DarDeBajaDesafioUseCase
 import com.catedra.tpinativo.domain.usecase.DarDeBajaHabitoUseCase
 import com.catedra.tpinativo.domain.usecase.GestionarProgresoHabitoUseCase
@@ -87,7 +88,8 @@ class HabitosViewModel(
     private val suscribirseADesafioUseCase: SuscribirseADesafioUseCase,
     private val darDeBajaHabitoUseCase: DarDeBajaHabitoUseCase,
     private val darDeBajaDesafioUseCase: DarDeBajaDesafioUseCase,
-    private val obtenerDesafiosCatalogoUseCase: ObtenerDesafiosCatalogoUseCase
+    private val obtenerDesafiosCatalogoUseCase: ObtenerDesafiosCatalogoUseCase,
+    private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HabitosUiState())
@@ -189,7 +191,7 @@ class HabitosViewModel(
                     )
                 }
 
-            // ✅ Si se desbloqueó un desafío, refrescamos para ver el logro en Logros
+                // ✅ Si se desbloqueó un desafío, refrescamos para ver el logro en Logros
                 if (resultado.desafioDesbloqueado) {
                     cargarHabitos(usuarioHabito.userId)
                 }
@@ -223,10 +225,24 @@ class HabitosViewModel(
 
     // ─── Suscripciones ───────────────────────────────────────────────────────
 
-    fun suscribirseAHabito(userId: String, habito: Habito) {
+    fun suscribirseAHabito(
+        userId: String,
+        habito: Habito,
+        horaRecordatorio: String? = null  // ✅ nuevo
+    ) {
         viewModelScope.launch {
             try {
-                suscribirHabitoUseCase(userId, habito)
+                suscribirHabitoUseCase(userId, habito, horaRecordatorio)
+                // ✅ Programar notificación si eligió hora
+                if (horaRecordatorio != null) {
+                    NotificacionesService.programar(
+                        context          = context,
+                        habitoId         = "${userId}_${habito.id}",
+                        nombre           = habito.nombre,
+                        detalle          = "Es hora de cumplir tu hábito 💪",
+                        horaRecordatorio = horaRecordatorio
+                    )
+                }
                 _uiState.update {
                     it.copy(mensajeInspirador = "¡Hábito activado! Pasito a pasito se llega lejos 🎯")
                 }
@@ -311,7 +327,7 @@ class HabitosViewModelFactory(private val context: Context) : ViewModelProvider.
         )
         val suscribirHabito    = SuscribirHabitoUseCase(habitosRepo)
         val suscribirDesafio   = SuscribirseADesafioUseCase(habitosRepo, desafiosRepo)
-        val bajaHabito         = DarDeBajaHabitoUseCase(habitosRepo, cumplimientosRepo)
+        val bajaHabito         = DarDeBajaHabitoUseCase(habitosRepo, cumplimientosRepo,context = context)
         val bajaDesafio        = DarDeBajaDesafioUseCase(habitosRepo, desafiosRepo, cumplimientosRepo)
         val obtenerDesafios    = ObtenerDesafiosCatalogoUseCase(desafiosRepo)
 
@@ -324,7 +340,8 @@ class HabitosViewModelFactory(private val context: Context) : ViewModelProvider.
             suscribirseADesafioUseCase     = suscribirDesafio,
             darDeBajaHabitoUseCase         = bajaHabito,
             darDeBajaDesafioUseCase        = bajaDesafio,
-            obtenerDesafiosCatalogoUseCase = obtenerDesafios
+            obtenerDesafiosCatalogoUseCase = obtenerDesafios,
+            context                        = context
         ) as T
     }
 }

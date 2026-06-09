@@ -38,7 +38,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
     LaunchedEffect(userId) {
         viewModel.cargarHabitos(userId)
     }
-    // ✅ Este reacciona cuando desafiosSuscritos cambia
+    //  Este reacciona cuando desafiosSuscritos cambia
     LaunchedEffect(uiState.desafiosSuscritos) {
         android.util.Log.d("DESCUBRIR", "desafiosSuscritos actualizado: ${uiState.desafiosSuscritos.size}")
     }
@@ -116,6 +116,54 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                         val (textoBoton, botonDeshabilitado) = uiState.obtenerEstadoHabitoIndividual(habito.id)
                         val yaSeCompletoHoy = textoBoton == "¡Completado! 💪"
 
+                        // Flujo de dos pasos: confirmación → TimePicker
+                        var mostrarConfirmacion by remember { mutableStateOf(false) }
+                        var mostrarTimePicker   by remember { mutableStateOf(false) }
+                        val ctx = androidx.compose.ui.platform.LocalContext.current
+
+                        // Paso 1 — Dialog de confirmación
+                        if (mostrarConfirmacion) {
+                            AlertDialog(
+                                onDismissRequest = { mostrarConfirmacion = false },
+                                title = { Text("Configurar recordatorio") },
+                                text  = { Text("¿Querés configurar una alarma diaria para \"${habito.nombre}\"?") },
+                                confirmButton = {
+                                    Button(onClick = {
+                                        mostrarConfirmacion = false
+                                        mostrarTimePicker   = true
+                                    }) { Text("Sí, elegir hora") }
+                                },
+                                dismissButton = {
+                                    OutlinedButton(onClick = {
+                                        mostrarConfirmacion = false
+                                        viewModel.suscribirseAHabito(userId, habito, null)
+                                    }) { Text("Sin recordatorio") }
+                                }
+                            )
+                        }
+
+                        // Paso 2 — TimePicker nativo
+                        if (mostrarTimePicker) {
+                            val cal = java.util.Calendar.getInstance()
+                            android.app.TimePickerDialog(
+                                ctx,
+                                { _, hora, minuto ->
+                                    val horaStr = "%02d:%02d".format(hora, minuto)
+                                    viewModel.suscribirseAHabito(userId, habito, horaStr)
+                                    mostrarTimePicker = false
+                                },
+                                cal.get(java.util.Calendar.HOUR_OF_DAY),
+                                cal.get(java.util.Calendar.MINUTE),
+                                true
+                            ).apply {
+                                setOnCancelListener {
+                                    viewModel.suscribirseAHabito(userId, habito, null)
+                                    mostrarTimePicker = false
+                                }
+                                show()
+                            }
+                        }
+
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier              = Modifier.padding(16.dp).fillMaxWidth(),
@@ -131,7 +179,7 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
                                     )
                                 }
                                 Button(
-                                    onClick  = { viewModel.suscribirseAHabito(userId, habito) },
+                                    onClick  = { if (!botonDeshabilitado) mostrarConfirmacion = true },
                                     enabled  = !botonDeshabilitado,
                                     colors   = ButtonDefaults.buttonColors(
                                         containerColor        = if (yaSeCompletoHoy) Color(0xFF4CAF50)
