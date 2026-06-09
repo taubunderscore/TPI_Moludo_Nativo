@@ -11,15 +11,10 @@ import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import androidx.compose.ui.tooling.preview.Preview
 import com.catedra.tpinativo.ui.theme.TPINativoTheme
 
-// ==========================================
-// 1. LA PREVIEW (Ahora funciona 100% offline)
-// ==========================================
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun LoginScreenPreview() {
     TPINativoTheme {
-        // Le pasamos datos de prueba estáticos directamente al contenido,
-        // esquivando por completo al ViewModel y a Firebase.
         LoginContent(
             errorMensaje = "Contraseña incorrecta (Ejemplo de Preview)",
             isLoadingInit = false,
@@ -29,9 +24,6 @@ fun LoginScreenPreview() {
     }
 }
 
-// ==========================================
-// 2. CONTENEDOR REAL (El que usa la app)
-// ==========================================
 @Composable
 fun LoginScreen(
     viewModel: HabitosViewModel,
@@ -67,9 +59,6 @@ fun LoginScreen(
     )
 }
 
-// ==========================================
-// 3. EL CONTENIDO VISUAL (Limpio de dependencias pesadas)
-// ==========================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginContent(

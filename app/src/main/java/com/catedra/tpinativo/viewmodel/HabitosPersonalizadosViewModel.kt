@@ -15,20 +15,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  UI State
-// ─────────────────────────────────────────────────────────────────────────────
-
 data class HabitosPersonalizadosUiState(
     val habitos: List<HabitoPersonalizado> = emptyList(),
     val cargando: Boolean = false,
     val error: String? = null,
     val exitoMensaje: String? = null    // mensaje de confirmación tras crear
 )
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  ViewModel
-// ─────────────────────────────────────────────────────────────────────────────
 
 class HabitosPersonalizadosViewModel(
     private val repository: HabitosPersonalizadosRepository,
@@ -38,8 +30,6 @@ class HabitosPersonalizadosViewModel(
 
     private val _uiState = MutableStateFlow(HabitosPersonalizadosUiState())
     val uiState: StateFlow<HabitosPersonalizadosUiState> = _uiState.asStateFlow()
-
-    // ─── Carga ───────────────────────────────────────────────────────────────
 
     fun cargar(userId: String) {
         viewModelScope.launch {
@@ -52,8 +42,6 @@ class HabitosPersonalizadosViewModel(
             }
         }
     }
-
-    // ─── Crear ───────────────────────────────────────────────────────────────
 
     fun crear(
         userId: String,
@@ -81,7 +69,6 @@ class HabitosPersonalizadosViewModel(
             )
         }
     }
-    // editar
     fun editar(
         userId: String,
         habitoId: String,
@@ -94,7 +81,7 @@ class HabitosPersonalizadosViewModel(
             _uiState.update { it.copy(cargando = true, error = null) }
             try {
                 repository.editar(habitoId, userId, nombre, detalle, categoria, horaRecordatorio)
-                // Reprogramar la notificación con la nueva hora
+
                 NotificacionesService.programar(
                     context          = context,
                     habitoId         = habitoId,
@@ -114,7 +101,6 @@ class HabitosPersonalizadosViewModel(
             }
         }
     }
-    // ─── Baja ────────────────────────────────────────────────────────────────
 
     fun desactivar(userId: String, habitoId: String) {
         viewModelScope.launch {
@@ -128,15 +114,9 @@ class HabitosPersonalizadosViewModel(
         }
     }
 
-    // ─── Reset helpers ───────────────────────────────────────────────────────
-
     fun resetearExito() = _uiState.update { it.copy(exitoMensaje = null) }
     fun resetearError() = _uiState.update { it.copy(error = null) }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Factory
-// ─────────────────────────────────────────────────────────────────────────────
 
 class HabitosPersonalizadosViewModelFactory(
     private val context: Context

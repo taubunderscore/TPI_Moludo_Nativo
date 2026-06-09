@@ -54,18 +54,17 @@ fun HabitosScreen(
     userId: String,
     onVerDetalle: (String) -> Unit
 ) {
-    val context  = LocalContext.current
-    val uiState  by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val desafios by viewModel.desafiosCatalogo.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // ── Snackbar al cumplir hábito ────────────────────────────────────────────
     LaunchedEffect(uiState.mensajeHabitoCumplido) {
         uiState.mensajeHabitoCumplido?.let {
             scope.launch {
                 snackbarHostState.showSnackbar(
-                    message  = it,
+                    message = it,
                     duration = SnackbarDuration.Short
                 )
             }
@@ -73,17 +72,14 @@ fun HabitosScreen(
         }
     }
 
-    // ── ViewModel de hábitos personalizados ──────────────────────────────────
     val personalizadosVM: HabitosPersonalizadosViewModel = viewModel(
         factory = HabitosPersonalizadosViewModelFactory(context)
     )
     val personalizadosState by personalizadosVM.uiState.collectAsStateWithLifecycle()
 
-    // ── Control del bottom sheet ──────────────────────────────────────────────
     var mostrarSheetNuevoHabito by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // ── Permiso de ubicación ──────────────────────────────────────────────────
     var permisoUbicacionOtorgado by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -94,7 +90,6 @@ fun HabitosScreen(
         ActivityResultContracts.RequestPermission()
     ) { concedido -> permisoUbicacionOtorgado = concedido }
 
-    // ── Permiso de notificaciones (Android 13+) ───────────────────────────────
     var permisoNotificacionOtorgado by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
@@ -121,7 +116,6 @@ fun HabitosScreen(
         personalizadosVM.cargar(userId)
     }
 
-    // ── Diálogo de desafío logrado ────────────────────────────────────────────
     uiState.ultimoDesafioLogrado?.let { nombreDesafio ->
         AlertDialog(
             onDismissRequest = { viewModel.resetearAlertaDesafio() },
@@ -129,26 +123,24 @@ fun HabitosScreen(
                 Button(onClick = { viewModel.resetearAlertaDesafio() }) { Text("¡Buenísimo!") }
             },
             title = { Text("🏆 ¡Desafío Completado!") },
-            text  = { Text("Felicitaciones, desbloqueaste:\n\n\"$nombreDesafio\"") }
+            text = { Text("Felicitaciones, desbloqueaste:\n\n\"$nombreDesafio\"") }
         )
     }
 
-    // ── Snackbar de éxito al crear hábito personalizado ───────────────────────
     personalizadosState.exitoMensaje?.let { msg ->
         LaunchedEffect(msg) {
             personalizadosVM.resetearExito()
         }
     }
 
-    // ── Bottom Sheet: formulario de nuevo hábito personalizado ────────────────
     if (mostrarSheetNuevoHabito) {
         ModalBottomSheet(
             onDismissRequest = { mostrarSheetNuevoHabito = false },
-            sheetState       = sheetState
+            sheetState = sheetState
         ) {
             FormularioNuevoHabitoPersonalizado(
                 cargando = personalizadosState.cargando,
-                error    = personalizadosState.error,
+                error = personalizadosState.error,
                 onCreate = { nombre, detalle, categoria, hora ->
                     personalizadosVM.crear(userId, nombre, detalle, categoria, hora)
                     mostrarSheetNuevoHabito = false
@@ -159,22 +151,18 @@ fun HabitosScreen(
     }
 
     HabitosContent(
-        habitos                    = uiState.habitos,
-        cargando                   = uiState.cargando,
-        error                      = uiState.error,
-        estaCumplidoHoyFn          = { uiState.estaCumplidoHoy(it) },
-        desafiosCatalogo           = desafios,
-        onVerDetalle               = onVerDetalle,
-        onAlternarEstado           = { viewModel.alternarEstadoHabito(it) },
-        fotoPerfilUrl              = uiState.fotoPerfilUrl,
+        habitos = uiState.habitos,
+        cargando = uiState.cargando,
+        error = uiState.error,
+        estaCumplidoHoyFn = { uiState.estaCumplidoHoy(it) },
+        desafiosCatalogo = desafios,
+        onVerDetalle = onVerDetalle,
+        onAlternarEstado = { viewModel.alternarEstadoHabito(it) },
+        fotoPerfilUrl = uiState.fotoPerfilUrl,
         onNuevoHabitoPersonalizado = { mostrarSheetNuevoHabito = true },
-        snackbarHostState          = snackbarHostState
+        snackbarHostState = snackbarHostState
     )
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  HabitosContent — agrega el FAB
-// ─────────────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -191,15 +179,15 @@ fun HabitosContent(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
 ) {
     var filtroSeleccionado by remember { mutableStateOf("PENDIENTES") }
-    var textoBuscado       by remember { mutableStateOf("") }
+    var textoBuscado by remember { mutableStateOf("") }
 
     val habitosFiltrados = habitos.filter { uh ->
-        val cumpleTexto  = uh.nombreCache.contains(textoBuscado, ignoreCase = true)
-        val cumplidoHoy  = estaCumplidoHoyFn(uh.id)
+        val cumpleTexto = uh.nombreCache.contains(textoBuscado, ignoreCase = true)
+        val cumplidoHoy = estaCumplidoHoyFn(uh.id)
         val cumpleEstado = when (filtroSeleccionado) {
             "PENDIENTES" -> !cumplidoHoy
-            "CUMPLIDOS"  -> cumplidoHoy
-            else         -> true
+            "CUMPLIDOS" -> cumplidoHoy
+            else -> true
         }
         cumpleTexto && cumpleEstado
     }
@@ -211,14 +199,14 @@ fun HabitosContent(
                     .fillMaxWidth()
                     .height(100.dp)
             ) {
-                // ── Imagen de fondo desde Cloudinary ─────────────────────────
+
                 AsyncImage(
-                    model              = "https://res.cloudinary.com/dyylor99b/image/upload/v1780845200/HD-wallpaper-autumn-park-sunlight-calm-autumn-leaves-bench-nature-trees-relaxing_c7cmeu.jpg",
+                    model = "https://res.cloudinary.com/dyylor99b/image/upload/v1780845200/HD-wallpaper-autumn-park-sunlight-calm-autumn-leaves-bench-nature-trees-relaxing_c7cmeu.jpg",
                     contentDescription = null,
-                    contentScale       = ContentScale.Crop,
-                    modifier           = Modifier.fillMaxSize()
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
-                // ── Scrim oscuro para que el texto sea legible ────────────────
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -231,29 +219,28 @@ fun HabitosContent(
                             )
                         )
                 )
-                // ── Contenido: título + avatar ────────────────────────────────
+
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
                         .statusBarsPadding()
                         .padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment     = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
                         Text(
-                            text  = "Mis Hábitos",
+                            text = "Mis Hábitos",
                             style = MaterialTheme.typography.headlineSmall,
                             color = androidx.compose.ui.graphics.Color.White
                         )
                         Text(
-                            text  = "Construí tu mejor versión 🌱",
+                            text = "Construí tu mejor versión 🌱",
                             style = MaterialTheme.typography.labelSmall,
                             color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f)
                         )
                     }
 
-                    // Avatar de perfil
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -264,33 +251,33 @@ fun HabitosContent(
                     ) {
                         if (!fotoPerfilUrl.isNullOrBlank()) {
                             AsyncImage(
-                                model              = fotoPerfilUrl,
+                                model = fotoPerfilUrl,
                                 contentDescription = "Foto de perfil",
-                                contentScale       = ContentScale.Crop,
-                                modifier           = Modifier.fillMaxSize()
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
                             )
                         } else {
                             Icon(
-                                imageVector        = Icons.Default.Person,
+                                imageVector = Icons.Default.Person,
                                 contentDescription = "Perfil",
-                                tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier           = Modifier.size(22.dp)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
                 }
             }
         },
-        // ── FAB abajo a la derecha ────────────────────────────────────────────
+
         floatingActionButton = {
             FloatingActionButton(
-                onClick            = onNuevoHabitoPersonalizado,
-                containerColor     = MaterialTheme.colorScheme.primary,
-                contentColor       = MaterialTheme.colorScheme.onPrimary,
-                shape              = CircleShape
+                onClick = onNuevoHabitoPersonalizado,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape
             ) {
                 Icon(
-                    imageVector        = Icons.Default.Add,
+                    imageVector = Icons.Default.Add,
                     contentDescription = "Nuevo hábito personalizado"
                 )
             }
@@ -306,24 +293,28 @@ fun HabitosContent(
             Spacer(modifier = Modifier.height(12.dp))
 
             SearchBarCompacta(
-                value         = textoBuscado,
+                value = textoBuscado,
                 onValueChange = { textoBuscado = it },
-                modifier      = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
             )
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Row(
-                modifier              = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf("TODOS", "PENDIENTES", "CUMPLIDOS").forEach { filtro ->
                     FilterChip(
                         selected = filtroSeleccionado == filtro,
-                        onClick  = { filtroSeleccionado = filtro },
-                        label    = {
+                        onClick = { filtroSeleccionado = filtro },
+                        label = {
                             Text(
-                                text  = filtro.lowercase().replaceFirstChar { it.uppercase() },
+                                text = filtro.lowercase().replaceFirstChar { it.uppercase() },
                                 style = MaterialTheme.typography.labelMedium
                             )
                         }
@@ -337,32 +328,40 @@ fun HabitosContent(
                 cargando -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
+
                 error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Error: $error", color = MaterialTheme.colorScheme.error)
                 }
-                habitosFiltrados.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+
+                habitosFiltrados.isEmpty() -> Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
                         "No se encontraron hábitos.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
+
                 else -> LazyColumn(
-                    modifier            = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding      = PaddingValues(bottom = 80.dp) // espacio para el FAB
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     items(habitosFiltrados) { uh ->
-                        val cumplidoHoy           = estaCumplidoHoyFn(uh.id)
+                        val cumplidoHoy = estaCumplidoHoyFn(uh.id)
                         val nombreDesafioAsociado = uh.desafioId?.let { desafioId ->
                             desafiosCatalogo.find { it.id == desafioId }?.nombre
                         }
                         HabitoCard(
-                            usuarioHabito         = uh,
-                            cumplidoHoy           = cumplidoHoy,
+                            usuarioHabito = uh,
+                            cumplidoHoy = cumplidoHoy,
                             nombreDesafioAsociado = nombreDesafioAsociado,
-                            onVerDetalle          = { onVerDetalle(uh.id) },
-                            onAlternarEstado      = { onAlternarEstado(uh) }
+                            onVerDetalle = { onVerDetalle(uh.id) },
+                            onAlternarEstado = { onAlternarEstado(uh) }
                         )
                     }
                 }
@@ -371,10 +370,6 @@ fun HabitosContent(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Formulario de nuevo hábito personalizado (dentro del BottomSheet)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun FormularioNuevoHabitoPersonalizado(
     cargando: Boolean,
@@ -382,10 +377,10 @@ fun FormularioNuevoHabitoPersonalizado(
     onCreate: (nombre: String, detalle: String, categoria: CategoriaHabito, hora: String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var nombre    by remember { mutableStateOf("") }
-    var detalle   by remember { mutableStateOf("") }
+    var nombre by remember { mutableStateOf("") }
+    var detalle by remember { mutableStateOf("") }
     var categoria by remember { mutableStateOf(CategoriaHabito.SALUD) }
-    var hora      by remember { mutableStateOf("") }
+    var hora by remember { mutableStateOf("") }
     var errorLocal by remember { mutableStateOf<String?>(null) }
 
     Column(
@@ -396,45 +391,44 @@ fun FormularioNuevoHabitoPersonalizado(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text  = "Nuevo hábito personalizado",
+            text = "Nuevo hábito personalizado",
             style = MaterialTheme.typography.titleLarge
         )
         val focusManager = LocalFocusManager.current
-        // Nombre
+
         OutlinedTextField(
-            value         = nombre,
+            value = nombre,
             onValueChange = { nombre = it },
-            label         = { Text("Nombre *") },
-            singleLine    = true,
-            modifier      = Modifier.fillMaxWidth(),
+            label = { Text("Nombre *") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Done  // ← muestra "Listo" en el teclado
+                imeAction = ImeAction.Done
             ),
             keyboardActions = KeyboardActions(
-                onDone = { focusManager.clearFocus() }  // ← cierra el teclado
+                onDone = { focusManager.clearFocus() }
             )
 
         )
 
         // Detalle
         OutlinedTextField(
-            value         = detalle,
+            value = detalle,
             onValueChange = { detalle = it },
-            label         = { Text("Detalle (opcional)") },
-            minLines      = 2,
-            maxLines      = 4,
-            modifier      = Modifier.fillMaxWidth(),
+            label = { Text("Detalle (opcional)") },
+            minLines = 2,
+            maxLines = 4,
+            modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(
-                imeAction = ImeAction.Done  // ← muestra "Listo" en el teclado
+                imeAction = ImeAction.Done
             ),
             keyboardActions = KeyboardActions(
-                onDone = { focusManager.clearFocus() }  // ← cierra el teclado
+                onDone = { focusManager.clearFocus() }
             )
         )
 
-        // Categoría
         Text(
-            text  = "Categoría",
+            text = "Categoría",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -442,46 +436,51 @@ fun FormularioNuevoHabitoPersonalizado(
             CategoriaHabito.entries.forEach { cat ->
                 FilterChip(
                     selected = categoria == cat,
-                    onClick  = { categoria = cat },
-                    label    = { Text(cat.display, style = MaterialTheme.typography.labelSmall) }
+                    onClick = { categoria = cat },
+                    label = { Text(cat.display, style = MaterialTheme.typography.labelSmall) }
                 )
             }
         }
 
-        // Hora de recordatorio — picker nativo
         val context = LocalContext.current
         OutlinedTextField(
-            value         = if (hora.isEmpty()) "" else hora,
+            value = if (hora.isEmpty()) "" else hora,
             onValueChange = {},
-            readOnly      = true,
-            label         = { Text("Hora de recordatorio *") },
-            placeholder   = { Text("Seleccioná una hora") },
-            trailingIcon  = {
+            readOnly = true,
+            label = { Text("Hora de recordatorio *") },
+            placeholder = { Text("Seleccioná una hora") },
+            trailingIcon = {
                 IconButton(onClick = {
                     val calendar = java.util.Calendar.getInstance()
-                    val horaActual    = if (hora.isNotEmpty()) hora.split(":")[0].toIntOrNull() ?: calendar.get(java.util.Calendar.HOUR_OF_DAY) else calendar.get(java.util.Calendar.HOUR_OF_DAY)
-                    val minutosActual = if (hora.isNotEmpty()) hora.split(":").getOrNull(1)?.toIntOrNull() ?: calendar.get(java.util.Calendar.MINUTE) else calendar.get(java.util.Calendar.MINUTE)
+                    val horaActual = if (hora.isNotEmpty()) hora.split(":")[0].toIntOrNull()
+                        ?: calendar.get(java.util.Calendar.HOUR_OF_DAY) else calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                    val minutosActual =
+                        if (hora.isNotEmpty()) hora.split(":").getOrNull(1)?.toIntOrNull()
+                            ?: calendar.get(java.util.Calendar.MINUTE) else calendar.get(java.util.Calendar.MINUTE)
                     TimePickerDialog(
                         context,
                         { _, h, m -> hora = "%02d:%02d".format(h, m) },
                         horaActual,
                         minutosActual,
-                        true   // formato 24h
+                        true
                     ).show()
                 }) {
                     Icon(
-                        imageVector        = Icons.Default.AccessTime,
+                        imageVector = Icons.Default.AccessTime,
                         contentDescription = "Seleccionar hora"
                     )
                 }
             },
             singleLine = true,
-            modifier   = Modifier
+            modifier = Modifier
                 .fillMaxWidth()
                 .clickable {
                     val calendar = java.util.Calendar.getInstance()
-                    val horaActual    = if (hora.isNotEmpty()) hora.split(":")[0].toIntOrNull() ?: calendar.get(java.util.Calendar.HOUR_OF_DAY) else calendar.get(java.util.Calendar.HOUR_OF_DAY)
-                    val minutosActual = if (hora.isNotEmpty()) hora.split(":").getOrNull(1)?.toIntOrNull() ?: calendar.get(java.util.Calendar.MINUTE) else calendar.get(java.util.Calendar.MINUTE)
+                    val horaActual = if (hora.isNotEmpty()) hora.split(":")[0].toIntOrNull()
+                        ?: calendar.get(java.util.Calendar.HOUR_OF_DAY) else calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                    val minutosActual =
+                        if (hora.isNotEmpty()) hora.split(":").getOrNull(1)?.toIntOrNull()
+                            ?: calendar.get(java.util.Calendar.MINUTE) else calendar.get(java.util.Calendar.MINUTE)
                     TimePickerDialog(
                         context,
                         { _, h, m -> hora = "%02d:%02d".format(h, m) },
@@ -492,23 +491,21 @@ fun FormularioNuevoHabitoPersonalizado(
                 }
         )
 
-        // Errores
         val mensajeError = errorLocal ?: error
         if (mensajeError != null) {
             Text(
-                text  = mensajeError,
+                text = mensajeError,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
         }
 
-        // Botones
         Row(
-            modifier              = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedButton(
-                onClick  = onDismiss,
+                onClick = onDismiss,
                 modifier = Modifier.weight(1f)
             ) { Text("Cancelar") }
 
@@ -517,12 +514,12 @@ fun FormularioNuevoHabitoPersonalizado(
                     errorLocal = null
                     when {
                         nombre.isBlank() -> errorLocal = "El nombre es obligatorio"
-                        hora.isEmpty()   -> errorLocal = "Seleccioná una hora de recordatorio"
+                        hora.isEmpty() -> errorLocal = "Seleccioná una hora de recordatorio"
                         else -> onCreate(nombre, detalle, categoria, hora)
                     }
                 },
                 modifier = Modifier.weight(1f),
-                enabled  = !cargando
+                enabled = !cargando
             ) {
                 if (cargando) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Text("Crear")
@@ -530,10 +527,6 @@ fun FormularioNuevoHabitoPersonalizado(
         }
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Composables reutilizados (sin cambios)
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun SearchBarCompacta(
@@ -543,11 +536,11 @@ fun SearchBarCompacta(
 ) {
     val colorEsquema = MaterialTheme.colorScheme
     BasicTextField(
-        value         = value,
+        value = value,
         onValueChange = onValueChange,
-        singleLine    = true,
-        textStyle     = MaterialTheme.typography.bodyMedium.copy(color = colorEsquema.onSurface),
-        cursorBrush   = SolidColor(colorEsquema.primary),
+        singleLine = true,
+        textStyle = MaterialTheme.typography.bodyMedium.copy(color = colorEsquema.onSurface),
+        cursorBrush = SolidColor(colorEsquema.primary),
         decorationBox = { innerTextField ->
             Row(
                 modifier = modifier
@@ -557,11 +550,20 @@ fun SearchBarCompacta(
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Search, null, tint = colorEsquema.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Icon(
+                    Icons.Default.Search,
+                    null,
+                    tint = colorEsquema.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Box(modifier = Modifier.weight(1f)) {
                     if (value.isEmpty()) {
-                        Text("Buscar hábito...", style = MaterialTheme.typography.bodyMedium, color = colorEsquema.onSurfaceVariant)
+                        Text(
+                            "Buscar hábito...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colorEsquema.onSurfaceVariant
+                        )
                     }
                     innerTextField()
                 }
@@ -579,32 +581,36 @@ fun HabitoCard(
     onAlternarEstado: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onVerDetalle() },
-        shape    = MaterialTheme.shapes.medium
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onVerDetalle() },
+        shape = MaterialTheme.shapes.medium
     ) {
         Row(
-            modifier              = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment     = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = usuarioHabito.nombreCache, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text  = "${usuarioHabito.categoriaCache} · ${usuarioHabito.frecuenciaCache}",
+                    text = "${usuarioHabito.categoriaCache} · ${usuarioHabito.frecuenciaCache}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (nombreDesafioAsociado != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Surface(
-                        shape    = MaterialTheme.shapes.small,
-                        color    = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
                         modifier = Modifier.wrapContentSize()
                     ) {
                         Text(
-                            text     = "🏆 $nombreDesafioAsociado",
-                            style    = MaterialTheme.typography.labelSmall,
-                            color    = MaterialTheme.colorScheme.onTertiaryContainer,
+                            text = "🏆 $nombreDesafioAsociado",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                         )
                     }

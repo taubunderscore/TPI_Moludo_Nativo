@@ -43,27 +43,20 @@ fun RegisterScreen(
     onVolver: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
-
-    // ─── Estado del formulario ────────────────────────────────────────────────
-    var email            by remember { mutableStateOf("") }
-    var password         by remember { mutableStateOf("") }
-    var confirmPassword  by remember { mutableStateOf("") }
-    var nombre           by remember { mutableStateOf("") }
-    var edad             by remember { mutableStateOf("") }
-    var errorMensaje     by remember { mutableStateOf<String?>(null) }
-    var isLoading        by remember { mutableStateOf(false) }
-    var estadoSubida     by remember { mutableStateOf("") }
-
-    // Intereses seleccionados
+    val scope = rememberCoroutineScope()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var nombre by remember { mutableStateOf("") }
+    var edad by remember { mutableStateOf("") }
+    var errorMensaje by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+    var estadoSubida by remember { mutableStateOf("") }
     val interesesDisponibles = listOf("Físico", "Estudio", "Salud", "Productividad")
     val interesesSeleccionados = remember { mutableStateListOf<String>() }
-
-    // ─── Foto de perfil ───────────────────────────────────────────────────────
-    var fotoUri      by remember { mutableStateOf<Uri?>(null) }
+    var fotoUri by remember { mutableStateOf<Uri?>(null) }
     var mostrarDialogoFoto by remember { mutableStateOf(false) }
 
-    // URI temporal para la foto de cámara (necesita FileProvider)
     val cameraUri: Uri = remember {
         val archivo = File(context.cacheDir, "foto_perfil_tmp.jpg")
         FileProvider.getUriForFile(
@@ -73,21 +66,18 @@ fun RegisterScreen(
         )
     }
 
-    // Launcher: cámara → guarda en cameraUri
     val launcherCamara = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { exito ->
         if (exito) fotoUri = cameraUri
     }
 
-    // Launcher: galería → devuelve Uri del archivo elegido
     val launcherGaleria = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) fotoUri = uri
     }
 
-    // Launcher: pedir permiso de cámara
     val launcherPermisoCamara = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { concedido ->
@@ -98,8 +88,8 @@ fun RegisterScreen(
     if (mostrarDialogoFoto) {
         AlertDialog(
             onDismissRequest = { mostrarDialogoFoto = false },
-            title   = { Text("Foto de perfil") },
-            text    = { Text("¿De dónde querés tomar la foto?") },
+            title = { Text("Foto de perfil") },
+            text = { Text("¿De dónde querés tomar la foto?") },
             confirmButton = {
                 TextButton(onClick = {
                     mostrarDialogoFoto = false
@@ -122,7 +112,6 @@ fun RegisterScreen(
         )
     }
 
-    // ─── UI ───────────────────────────────────────────────────────────────────
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -132,13 +121,12 @@ fun RegisterScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text     = "Crear Cuenta",
-            style    = MaterialTheme.typography.headlineLarge,
-            color    = MaterialTheme.colorScheme.primary,
+            text = "Crear Cuenta",
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // ── Avatar / selector de foto ─────────────────────────────────────────
         Box(
             modifier = Modifier
                 .size(110.dp)
@@ -150,92 +138,91 @@ fun RegisterScreen(
         ) {
             if (fotoUri != null) {
                 Image(
-                    painter            = rememberAsyncImagePainter(fotoUri),
+                    painter = rememberAsyncImagePainter(fotoUri),
                     contentDescription = "Foto de perfil",
-                    modifier           = Modifier.fillMaxSize(),
-                    contentScale       = ContentScale.Crop
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector        = Icons.Default.Person,
+                        imageVector = Icons.Default.Person,
                         contentDescription = null,
-                        modifier           = Modifier.size(48.dp),
-                        tint               = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Icon(
-                        imageVector        = Icons.Default.CameraAlt,
+                        imageVector = Icons.Default.CameraAlt,
                         contentDescription = null,
-                        modifier           = Modifier.size(20.dp),
-                        tint               = MaterialTheme.colorScheme.primary
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
         }
 
         Text(
-            text     = if (fotoUri != null) "Foto seleccionada ✓" else "Tocá para agregar foto",
-            style    = MaterialTheme.typography.bodySmall,
-            color    = if (fotoUri != null)
-                           MaterialTheme.colorScheme.primary
-                       else
-                           MaterialTheme.colorScheme.onSurfaceVariant,
+            text = if (fotoUri != null) "Foto seleccionada ✓" else "Tocá para agregar foto",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (fotoUri != null)
+                MaterialTheme.colorScheme.primary
+            else
+                MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp, bottom = 20.dp)
         )
 
-        // ── Campos del formulario ──────────────────────────────────────────────
         OutlinedTextField(
-            value         = nombre,
+            value = nombre,
             onValueChange = { nombre = it },
-            label         = { Text("Nombre") },
-            modifier      = Modifier.fillMaxWidth(),
-            singleLine    = true
+            label = { Text("Nombre") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value            = edad,
-            onValueChange    = { edad = it },
-            label            = { Text("Edad") },
-            modifier         = Modifier.fillMaxWidth(),
-            singleLine       = true,
-            keyboardOptions  = KeyboardOptions(keyboardType = KeyboardType.Number)
+            value = edad,
+            onValueChange = { edad = it },
+            label = { Text("Edad") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value            = email,
-            onValueChange    = { email = it },
-            label            = { Text("Correo Electrónico") },
-            modifier         = Modifier.fillMaxWidth(),
-            singleLine       = true,
-            keyboardOptions  = KeyboardOptions(keyboardType = KeyboardType.Email)
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Correo Electrónico") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value                  = password,
-            onValueChange          = { password = it },
-            label                  = { Text("Contraseña") },
-            visualTransformation   = PasswordVisualTransformation(),
-            modifier               = Modifier.fillMaxWidth(),
-            singleLine             = true
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Contraseña") },
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value                  = confirmPassword,
-            onValueChange          = { confirmPassword = it },
-            label                  = { Text("Confirmar contraseña") },
-            visualTransformation   = PasswordVisualTransformation(),
-            modifier               = Modifier.fillMaxWidth(),
-            singleLine             = true,
-            isError                = confirmPassword.isNotEmpty() && confirmPassword != password,
-            supportingText         = {
+            value = confirmPassword,
+            onValueChange = { confirmPassword = it },
+            label = { Text("Confirmar contraseña") },
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            isError = confirmPassword.isNotEmpty() && confirmPassword != password,
+            supportingText = {
                 if (confirmPassword.isNotEmpty() && confirmPassword != password)
                     Text("Las contraseñas no coinciden", color = MaterialTheme.colorScheme.error)
             }
@@ -243,28 +230,27 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ── Intereses ─────────────────────────────────────────────────────────
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text  = "Intereses",
+                text = "Intereses",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text  = "Seleccioná los que quieras trabajar",
+                text = "Seleccioná los que quieras trabajar",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 10.dp)
             )
             Row(
-                modifier              = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 interesesDisponibles.forEach { interes ->
                     val seleccionado = interes in interesesSeleccionados
                     FilterChip(
                         selected = seleccionado,
-                        onClick  = {
+                        onClick = {
                             if (seleccionado) interesesSeleccionados.remove(interes)
                             else interesesSeleccionados.add(interes)
                         },
@@ -274,11 +260,10 @@ fun RegisterScreen(
             }
         }
 
-        // ── Errores / estado ──────────────────────────────────────────────────
         if (errorMensaje != null) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text  = errorMensaje!!,
+                text = errorMensaje!!,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -287,7 +272,7 @@ fun RegisterScreen(
         if (estadoSubida.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text  = estadoSubida,
+                text = estadoSubida,
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.bodySmall
             )
@@ -295,17 +280,20 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // ── Botón registrarse ─────────────────────────────────────────────────
         Button(
             onClick = {
                 when {
-                    nombre.isBlank()                          -> errorMensaje = "El nombre es obligatorio"
-                    edad.isBlank() || edad.toIntOrNull() == null -> errorMensaje = "Ingresá una edad válida"
-                    email.isBlank()                           -> errorMensaje = "El correo es obligatorio"
-                    password.length < 6                       -> errorMensaje = "La contraseña debe tener al menos 6 caracteres"
-                    password != confirmPassword               -> errorMensaje = "Las contraseñas no coinciden"
+                    nombre.isBlank() -> errorMensaje = "El nombre es obligatorio"
+                    edad.isBlank() || edad.toIntOrNull() == null -> errorMensaje =
+                        "Ingresá una edad válida"
+
+                    email.isBlank() -> errorMensaje = "El correo es obligatorio"
+                    password.length < 6 -> errorMensaje =
+                        "La contraseña debe tener al menos 6 caracteres"
+
+                    password != confirmPassword -> errorMensaje = "Las contraseñas no coinciden"
                     else -> {
-                        isLoading    = true
+                        isLoading = true
                         errorMensaje = null
 
                         FirebaseAuth.getInstance()
@@ -313,10 +301,8 @@ fun RegisterScreen(
                             .addOnSuccessListener { authResult ->
                                 val uid = authResult.user?.uid ?: ""
 
-                                // Lanzamos coroutine para subir foto y guardar en Firestore
                                 scope.launch {
                                     try {
-                                        // 1. Subir foto a Cloudinary (si eligió una)
                                         var fotoUrl: String? = null
                                         if (fotoUri != null) {
                                             estadoSubida = "Subiendo foto…"
@@ -326,26 +312,25 @@ fun RegisterScreen(
                                                 "Foto subida ✓" else "No se pudo subir la foto"
                                         }
 
-                                        // 2. Guardar usuario en Firestore con intereses seleccionados
                                         estadoSubida = "Guardando datos…"
                                         UserRepository().crearUsuario(
-                                            userId    = uid,
-                                            nombre    = nombre,
-                                            email     = email,
-                                            edad      = edad.toInt(),
+                                            userId = uid,
+                                            nombre = nombre,
+                                            email = email,
+                                            edad = edad.toInt(),
                                             intereses = interesesSeleccionados.toList(),
-                                            fotoUrl   = fotoUrl
+                                            fotoUrl = fotoUrl
                                         )
 
-                                        // 3. Todo OK → navegar
-                                        isLoading    = false
+                                        isLoading = false
                                         estadoSubida = ""
                                         onRegistroExitoso()
 
                                     } catch (e: Exception) {
-                                        isLoading    = false
+                                        isLoading = false
                                         estadoSubida = ""
-                                        errorMensaje = "Error al guardar los datos: ${e.localizedMessage}"
+                                        errorMensaje =
+                                            "Error al guardar los datos: ${e.localizedMessage}"
                                     }
                                 }
                             }
@@ -354,8 +339,10 @@ fun RegisterScreen(
                                 errorMensaje = when {
                                     exception.message?.contains("already in use") == true ->
                                         "Ya existe una cuenta con ese email"
+
                                     exception.message?.contains("badly formatted") == true ->
                                         "El formato del email no es válido"
+
                                     else ->
                                         "Error al registrarse: ${exception.message}"
                                 }
@@ -370,7 +357,7 @@ fun RegisterScreen(
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
-                    color    = MaterialTheme.colorScheme.onPrimary,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             } else {

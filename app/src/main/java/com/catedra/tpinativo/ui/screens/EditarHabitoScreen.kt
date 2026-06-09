@@ -34,25 +34,24 @@ fun EditarHabitoScreen(
     horaInicial: String,
     onVolver: () -> Unit
 ) {
-    val context      = LocalContext.current
+    val context = LocalContext.current
     val focusManager = LocalFocusManager.current
     val personalizadosVM: HabitosPersonalizadosViewModel = viewModel(
         factory = HabitosPersonalizadosViewModelFactory(context)
     )
     val state by personalizadosVM.uiState.collectAsState()
 
-    var nombre    by remember { mutableStateOf(nombreInicial) }
-    var detalle   by remember { mutableStateOf(detalleInicial) }
+    var nombre by remember { mutableStateOf(nombreInicial) }
+    var detalle by remember { mutableStateOf(detalleInicial) }
     var categoria by remember {
         mutableStateOf(
             runCatching { CategoriaHabito.valueOf(categoriaInicial.uppercase()) }
                 .getOrDefault(CategoriaHabito.SALUD)
         )
     }
-    var hora      by remember { mutableStateOf(horaInicial) }
+    var hora by remember { mutableStateOf(horaInicial) }
     var errorLocal by remember { mutableStateOf<String?>(null) }
 
-    // Volver automáticamente cuando se guarda exitosamente
     LaunchedEffect(state.exitoMensaje) {
         if (state.exitoMensaje != null) {
             personalizadosVM.resetearExito()
@@ -82,51 +81,51 @@ fun EditarHabitoScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Nombre ────────────────────────────────────────────
             OutlinedTextField(
-                value         = nombre,
+                value = nombre,
                 onValueChange = { nombre = it },
-                label         = { Text("Nombre *") },
-                singleLine    = true,
-                modifier      = Modifier.fillMaxWidth(),
+                label = { Text("Nombre *") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
             )
 
-            // ── Detalle ───────────────────────────────────────────
             OutlinedTextField(
-                value         = detalle,
+                value = detalle,
                 onValueChange = { detalle = it },
-                label         = { Text("Detalle (opcional)") },
-                minLines      = 2,
-                maxLines      = 4,
-                modifier      = Modifier.fillMaxWidth()
+                label = { Text("Detalle (opcional)") },
+                minLines = 2,
+                maxLines = 4,
+                modifier = Modifier.fillMaxWidth()
             )
 
-            // ── Categoría ─────────────────────────────────────────
-            Text("Categoría", style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "Categoría", style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CategoriaHabito.entries.forEach { cat ->
                     FilterChip(
                         selected = categoria == cat,
-                        onClick  = { categoria = cat },
-                        label    = { Text(cat.display, style = MaterialTheme.typography.labelSmall) }
+                        onClick = { categoria = cat },
+                        label = { Text(cat.display, style = MaterialTheme.typography.labelSmall) }
                     )
                 }
             }
 
-            // ── Hora de recordatorio ──────────────────────────────
             OutlinedTextField(
-                value         = hora,
+                value = hora,
                 onValueChange = {},
-                readOnly      = true,
-                label         = { Text("Hora de recordatorio *") },
-                trailingIcon  = {
+                readOnly = true,
+                label = { Text("Hora de recordatorio *") },
+                trailingIcon = {
                     IconButton(onClick = {
                         val cal = java.util.Calendar.getInstance()
-                        val h = hora.split(":").getOrNull(0)?.toIntOrNull() ?: cal.get(java.util.Calendar.HOUR_OF_DAY)
-                        val m = hora.split(":").getOrNull(1)?.toIntOrNull() ?: cal.get(java.util.Calendar.MINUTE)
+                        val h = hora.split(":").getOrNull(0)?.toIntOrNull()
+                            ?: cal.get(java.util.Calendar.HOUR_OF_DAY)
+                        val m = hora.split(":").getOrNull(1)?.toIntOrNull()
+                            ?: cal.get(java.util.Calendar.MINUTE)
                         TimePickerDialog(context, { _, hh, mm ->
                             hora = "%02d:%02d".format(hh, mm)
                         }, h, m, true).show()
@@ -134,32 +133,36 @@ fun EditarHabitoScreen(
                         Icon(Icons.Default.AccessTime, contentDescription = "Hora")
                     }
                 },
-                modifier = Modifier.fillMaxWidth().clickable {
-                    val cal = java.util.Calendar.getInstance()
-                    val h = hora.split(":").getOrNull(0)?.toIntOrNull() ?: cal.get(java.util.Calendar.HOUR_OF_DAY)
-                    val m = hora.split(":").getOrNull(1)?.toIntOrNull() ?: cal.get(java.util.Calendar.MINUTE)
-                    TimePickerDialog(context, { _, hh, mm ->
-                        hora = "%02d:%02d".format(hh, mm)
-                    }, h, m, true).show()
-                }
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val cal = java.util.Calendar.getInstance()
+                        val h = hora.split(":").getOrNull(0)?.toIntOrNull()
+                            ?: cal.get(java.util.Calendar.HOUR_OF_DAY)
+                        val m = hora.split(":").getOrNull(1)?.toIntOrNull()
+                            ?: cal.get(java.util.Calendar.MINUTE)
+                        TimePickerDialog(context, { _, hh, mm ->
+                            hora = "%02d:%02d".format(hh, mm)
+                        }, h, m, true).show()
+                    }
             )
 
-            // ── Error ─────────────────────────────────────────────
             val mensajeError = errorLocal ?: state.error
             if (mensajeError != null) {
-                Text(mensajeError, color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall)
+                Text(
+                    mensajeError, color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Botón guardar ─────────────────────────────────────
             Button(
                 onClick = {
                     errorLocal = null
                     when {
                         nombre.isBlank() -> errorLocal = "El nombre es obligatorio"
-                        hora.isEmpty()   -> errorLocal = "Seleccioná una hora"
+                        hora.isEmpty() -> errorLocal = "Seleccioná una hora"
                         else -> {
                             android.util.Log.d(
                                 "EDITAR",
@@ -178,9 +181,12 @@ fun EditarHabitoScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled  = !state.cargando
+                enabled = !state.cargando
             ) {
-                if (state.cargando) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                if (state.cargando) CircularProgressIndicator(
+                    Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
                 else Text("Guardar cambios")
             }
 

@@ -6,25 +6,9 @@ import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-/**
- * Maneja la colección historial_cumplimientos.
- *
- * Estructura de cada documento:
- *   id, userId, habitoId (UsuarioHabito), habitoCatalogoId, fecha (yyyy-MM-dd), nota?
- *
- * Índice compuesto requerido en Firestore Console:
- *   Colección: historial_cumplimientos
- *   Campos: userId ASC, habitoId ASC, fecha ASC
- */
 class CumplimientosRepository {
     private val db = FirebaseFirestore.getInstance()
 
-    /**
-     * Alterna el cumplimiento de hoy para un UsuarioHabito:
-     * - Si ya existe el doc de hoy → lo borra (destilda)
-     * - Si no existe → lo crea (tilda)
-     * Devuelve true si quedó marcado, false si se desmarcó.
-     */
     suspend fun alternarCumplimientoHoy(
         userId: String,
         usuarioHabitoId: String,
@@ -52,12 +36,12 @@ class CumplimientosRepository {
                 // No estaba → tildar
                 val ref = db.collection("historial_cumplimientos").document()
                 val doc = hashMapOf(
-                    "id"               to ref.id,
-                    "userId"           to userId,
-                    "habitoId"         to usuarioHabitoId,
+                    "id" to ref.id,
+                    "userId" to userId,
+                    "habitoId" to usuarioHabitoId,
                     "habitoCatalogoId" to habitoCatalogoId,
-                    "fecha"            to hoy,
-                    "nota"             to null
+                    "fecha" to hoy,
+                    "nota" to null
                 )
                 ref.set(doc).await()
                 android.util.Log.d("CUMPLIMIENTO", "Tildado OK — docId=${ref.id}")
@@ -70,10 +54,6 @@ class CumplimientosRepository {
         }
     }
 
-    /**
-     * Devuelve todas las fechas cumplidas de un UsuarioHabito, ordenadas.
-     * Útil para calcular rachas y progreso de desafíos.
-     */
     suspend fun obtenerFechasCumplidas(
         userId: String,
         usuarioHabitoId: String
@@ -92,9 +72,6 @@ class CumplimientosRepository {
         }
     }
 
-    /**
-     * Verifica si un hábito ya fue cumplido hoy.
-     */
     suspend fun estaCumplidoHoy(
         userId: String,
         usuarioHabitoId: String
@@ -111,10 +88,6 @@ class CumplimientosRepository {
         }
     }
 
-    /**
-     * Devuelve todos los cumplimientos de un usuario en un rango de fechas.
-     * Útil para la pantalla de logros / estadísticas.
-     */
     suspend fun obtenerCumplimientosEnRango(
         userId: String,
         desde: String,
@@ -129,16 +102,14 @@ class CumplimientosRepository {
                 .documents
                 .mapNotNull { it.toObject(Cumplimiento::class.java)?.copy(id = it.id) }
         } catch (e: Exception) {
-            android.util.Log.e("CumplimientosRepo", "obtenerCumplimientosEnRango: ${e.localizedMessage}")
+            android.util.Log.e(
+                "CumplimientosRepo",
+                "obtenerCumplimientosEnRango: ${e.localizedMessage}"
+            )
             emptyList()
         }
     }
 
-    /**
-     * Elimina todos los cumplimientos de un UsuarioHabito (al darlo de baja).
-     * Firestore no permite borrar colecciones enteras desde el cliente,
-     * por eso hacemos batch manual.
-     */
     suspend fun eliminarCumplimientosDeHabito(
         userId: String,
         usuarioHabitoId: String
@@ -153,7 +124,10 @@ class CumplimientosRepository {
             docs.forEach { batch.delete(it.reference) }
             if (docs.isNotEmpty()) batch.commit().await()
         } catch (e: Exception) {
-            android.util.Log.e("CumplimientosRepo", "eliminarCumplimientosDeHabito: ${e.localizedMessage}")
+            android.util.Log.e(
+                "CumplimientosRepo",
+                "eliminarCumplimientosDeHabito: ${e.localizedMessage}"
+            )
         }
     }
 }

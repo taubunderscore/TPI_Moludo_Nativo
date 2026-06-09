@@ -27,10 +27,6 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  UI State
-// ─────────────────────────────────────────────────────────────────────────────
-
 data class HabitosUiState(
     val habitos: List<UsuarioHabito> = emptyList(),
     val fechasPorHabito: Map<String, List<String>> = emptyMap(),
@@ -39,7 +35,6 @@ data class HabitosUiState(
     val error: String? = null,
     val ultimoDesafioLogrado: String? = null,
     val mensajeInspirador: String? = null,
-    // Foto de perfil del usuario logueado (URL de Cloudinary)
     val fotoPerfilUrl: String? = null,
     val mensajeHabitoCumplido: String? = null
 ) {
@@ -75,10 +70,6 @@ data class HabitosUiState(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  ViewModel
-// ─────────────────────────────────────────────────────────────────────────────
-
 class HabitosViewModel(
     private val habitosRepository: HabitosRepository,
     private val cumplimientosRepository: CumplimientosRepository,
@@ -101,15 +92,16 @@ class HabitosViewModel(
     private val _desafiosCatalogo = MutableStateFlow<List<Desafio>>(emptyList())
     val desafiosCatalogo: StateFlow<List<Desafio>> = _desafiosCatalogo.asStateFlow()
 
-    // ─── Carga principal ─────────────────────────────────────────────────────
-
     fun cargarHabitos(userId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(cargando = true, error = null) }
             try {
-                val habitos           = habitosRepository.obtenerHabitosUsuario(userId)
+                val habitos = habitosRepository.obtenerHabitosUsuario(userId)
                 val desafiosSuscritos = desafiosRepository.obtenerDesafiosUsuario(userId)
-                android.util.Log.d("CARGAR_HABITOS", "habitos=${habitos.size} | desafios=${desafiosSuscritos.size}")
+                android.util.Log.d(
+                    "CARGAR_HABITOS",
+                    "habitos=${habitos.size} | desafios=${desafiosSuscritos.size}"
+                )
 
                 val fechasPorHabito = habitos.associate { uh ->
                     uh.id to cumplimientosRepository.obtenerFechasCumplidas(userId, uh.id)
@@ -117,10 +109,10 @@ class HabitosViewModel(
 
                 _uiState.update {
                     it.copy(
-                        habitos           = habitos,
-                        fechasPorHabito   = fechasPorHabito,
+                        habitos = habitos,
+                        fechasPorHabito = fechasPorHabito,
                         desafiosSuscritos = desafiosSuscritos,
-                        cargando          = false
+                        cargando = false
                     )
                 }
             } catch (e: Exception) {
@@ -129,24 +121,23 @@ class HabitosViewModel(
         }
     }
 
-    /**
-     * Carga la URL de la foto de perfil del usuario desde Firestore
-     * y la expone en el UiState para que HabitosScreen la muestre.
-     */
     fun cargarFotoPerfil(userId: String) {
         viewModelScope.launch {
             try {
                 val datos = UserRepository().obtenerUsuario(userId)
-                val url   = datos?.get("foto") as? String
+                val url = datos?.get("foto") as? String
                 if (!url.isNullOrBlank()) {
                     _uiState.update { it.copy(fotoPerfilUrl = url) }
                 }
             } catch (e: Exception) {
-                android.util.Log.w("HabitosVM", "No se pudo cargar foto de perfil: ${e.localizedMessage}")
+                android.util.Log.w(
+                    "HabitosVM",
+                    "No se pudo cargar foto de perfil: ${e.localizedMessage}"
+                )
             }
         }
     }
-    // listo todos los habitos cumplidos y desafios pormas que ya no esten suscriptos
+
     private val _todosHabitosUsuario = MutableStateFlow<List<UsuarioHabito>>(emptyList())
     val todosHabitosUsuario: StateFlow<List<UsuarioHabito>> = _todosHabitosUsuario.asStateFlow()
 
@@ -159,20 +150,19 @@ class HabitosViewModel(
     fun cargarDatosLogros(userId: String) {
         viewModelScope.launch {
             try {
-                val habitos  = habitosRepository.obtenerTodosLosHabitosUsuario(userId)
+                val habitos = habitosRepository.obtenerTodosLosHabitosUsuario(userId)
                 val desafios = desafiosRepository.obtenerTodosLosDesafiosUsuario(userId)
-                val fechas   = habitos.associate { uh ->
+                val fechas = habitos.associate { uh ->
                     uh.id to cumplimientosRepository.obtenerFechasCumplidas(userId, uh.id)
                 }
-                _todosHabitosUsuario.value  = habitos
+                _todosHabitosUsuario.value = habitos
                 _todosDesafiosUsuario.value = desafios
-                _todasLasFechas.value       = fechas
+                _todasLasFechas.value = fechas
             } catch (e: Exception) {
                 android.util.Log.e("HabitosVM", "cargarDatosLogros: ${e.localizedMessage}")
             }
         }
     }
-    // ─── Alternar cumplimiento ───────────────────────────────────────────────
 
     fun alternarEstadoHabito(usuarioHabito: UsuarioHabito) {
         viewModelScope.launch {
@@ -185,13 +175,12 @@ class HabitosViewModel(
                     val seTildo = resultado.fechasCumplidas.contains(hoy)
 
                     estado.copy(
-                        fechasPorHabito       = nuevasFechas,
-                        ultimoDesafioLogrado  = if (resultado.desafioDesbloqueado) resultado.nombreDesafio else null,
+                        fechasPorHabito = nuevasFechas,
+                        ultimoDesafioLogrado = if (resultado.desafioDesbloqueado) resultado.nombreDesafio else null,
                         mensajeHabitoCumplido = if (seTildo) "✅ ${usuarioHabito.nombreCache} cumplido hoy! 💪" else null
                     )
                 }
 
-                // ✅ Si se desbloqueó un desafío, refrescamos para ver el logro en Logros
                 if (resultado.desafioDesbloqueado) {
                     cargarHabitos(usuarioHabito.userId)
                 }
@@ -200,10 +189,10 @@ class HabitosViewModel(
             }
         }
     }
+
     fun resetearMensajeHabitoCumplido() {
         _uiState.update { it.copy(mensajeHabitoCumplido = null) }
     }
-    // ─── Catálogo ────────────────────────────────────────────────────────────
 
     fun cargarCatalogoPorCategoria(categoria: String) {
         viewModelScope.launch {
@@ -223,23 +212,20 @@ class HabitosViewModel(
         }
     }
 
-    // ─── Suscripciones ───────────────────────────────────────────────────────
-
     fun suscribirseAHabito(
         userId: String,
         habito: Habito,
-        horaRecordatorio: String? = null  // ✅ nuevo
+        horaRecordatorio: String? = null
     ) {
         viewModelScope.launch {
             try {
                 suscribirHabitoUseCase(userId, habito, horaRecordatorio)
-                // ✅ Programar notificación si eligió hora
                 if (horaRecordatorio != null) {
                     NotificacionesService.programar(
-                        context          = context,
-                        habitoId         = "${userId}_${habito.id}",
-                        nombre           = habito.nombre,
-                        detalle          = "Es hora de cumplir tu hábito 💪",
+                        context = context,
+                        habitoId = "${userId}_${habito.id}",
+                        nombre = habito.nombre,
+                        detalle = "Es hora de cumplir tu hábito 💪",
                         horaRecordatorio = horaRecordatorio
                     )
                 }
@@ -267,8 +253,6 @@ class HabitosViewModel(
         }
     }
 
-    // ─── Bajas ───────────────────────────────────────────────────────────────
-
     fun darDeBajaHabito(userId: String, usuarioHabitoId: String) {
         viewModelScope.launch {
             try {
@@ -295,8 +279,6 @@ class HabitosViewModel(
         }
     }
 
-    // ─── Reset helpers ───────────────────────────────────────────────────────
-
     fun resetearAlertaDesafio() {
         _uiState.update { it.copy(ultimoDesafioLogrado = null) }
     }
@@ -306,42 +288,37 @@ class HabitosViewModel(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Factory
-// ─────────────────────────────────────────────────────────────────────────────
-
 class HabitosViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        val habitosRepo       = HabitosRepository()
+        val habitosRepo = HabitosRepository()
         val cumplimientosRepo = CumplimientosRepository()
-        val desafiosRepo      = DesafiosRepository()
+        val desafiosRepo = DesafiosRepository()
 
-        // Use cases — le pasamos el context para geolocalización
-        val gestionarProgreso  = GestionarProgresoHabitoUseCase(
-            habitosRepository       = habitosRepo,
+        val gestionarProgreso = GestionarProgresoHabitoUseCase(
+            habitosRepository = habitosRepo,
             cumplimientosRepository = cumplimientosRepo,
-            desafiosRepository      = desafiosRepo,
-            context                 = context        // ← nuevo
+            desafiosRepository = desafiosRepo,
+            context = context        // ← nuevo
         )
-        val suscribirHabito    = SuscribirHabitoUseCase(habitosRepo)
-        val suscribirDesafio   = SuscribirseADesafioUseCase(habitosRepo, desafiosRepo)
-        val bajaHabito         = DarDeBajaHabitoUseCase(habitosRepo, cumplimientosRepo,context = context)
-        val bajaDesafio        = DarDeBajaDesafioUseCase(habitosRepo, desafiosRepo, cumplimientosRepo)
-        val obtenerDesafios    = ObtenerDesafiosCatalogoUseCase(desafiosRepo)
+        val suscribirHabito = SuscribirHabitoUseCase(habitosRepo)
+        val suscribirDesafio = SuscribirseADesafioUseCase(habitosRepo, desafiosRepo)
+        val bajaHabito = DarDeBajaHabitoUseCase(habitosRepo, cumplimientosRepo, context = context)
+        val bajaDesafio = DarDeBajaDesafioUseCase(habitosRepo, desafiosRepo, cumplimientosRepo)
+        val obtenerDesafios = ObtenerDesafiosCatalogoUseCase(desafiosRepo)
 
         return HabitosViewModel(
-            habitosRepository              = habitosRepo,
-            cumplimientosRepository        = cumplimientosRepo,
-            desafiosRepository             = desafiosRepo,
-            gestionarProgresoUseCase       = gestionarProgreso,
-            suscribirHabitoUseCase         = suscribirHabito,
-            suscribirseADesafioUseCase     = suscribirDesafio,
-            darDeBajaHabitoUseCase         = bajaHabito,
-            darDeBajaDesafioUseCase        = bajaDesafio,
+            habitosRepository = habitosRepo,
+            cumplimientosRepository = cumplimientosRepo,
+            desafiosRepository = desafiosRepo,
+            gestionarProgresoUseCase = gestionarProgreso,
+            suscribirHabitoUseCase = suscribirHabito,
+            suscribirseADesafioUseCase = suscribirDesafio,
+            darDeBajaHabitoUseCase = bajaHabito,
+            darDeBajaDesafioUseCase = bajaDesafio,
             obtenerDesafiosCatalogoUseCase = obtenerDesafios,
-            context                        = context
+            context = context
         ) as T
     }
 }

@@ -26,7 +26,6 @@ import com.catedra.tpinativo.ui.theme.HabitCoral
 import com.catedra.tpinativo.ui.theme.HabitViolet
 import kotlinx.coroutines.delay
 
-// ── Frases motivacionales ─────────────────────────────────────────
 private val FRASES = listOf(
     "Pequeños pasos, grandes cambios.",
     "Un día a la vez, un hábito a la vez.",
@@ -39,20 +38,17 @@ private val FRASES = listOf(
     "Confía en el proceso.",
     "Tu mejor versión te está esperando."
 )
+
 @Composable
 fun SplashScreen(onSplashTerminado: () -> Unit) {
 
-    // Frase aleatoria fija durante toda la pantalla
     val frase = remember { FRASES.random() }
-
-    // ── Animaciones ───────────────────────────────────────────────
     val logoScale = remember { Animatable(0.6f) }
     val logoAlpha = remember { Animatable(0f) }
     val textoAlpha = remember { Animatable(0f) }
     val fraseAlpha = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
-        // 1. Logo aparece con bounce
         logoAlpha.animateTo(1f, animationSpec = tween(500))
         logoScale.animateTo(
             targetValue = 1f,
@@ -62,18 +58,14 @@ fun SplashScreen(onSplashTerminado: () -> Unit) {
             )
         )
         delay(150)
-        // 2. Nombre de la app
         textoAlpha.animateTo(1f, animationSpec = tween(400))
         delay(200)
-        // 3. Frase motivacional
         fraseAlpha.animateTo(1f, animationSpec = tween(500))
 
-        // 4. Espera y navega
         delay(1800)
         onSplashTerminado()
     }
 
-    // ── UI ────────────────────────────────────────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -86,8 +78,6 @@ fun SplashScreen(onSplashTerminado: () -> Unit) {
             modifier = Modifier.padding(horizontal = 32.dp)
         ) {
 
-            // Logo
-            // Reemplazar el bloque Image del splash por esto:
             Image(
                 painter = painterResource(id = R.drawable.logo_habitflow),
                 contentDescription = "HabitFlow logo",
@@ -100,7 +90,6 @@ fun SplashScreen(onSplashTerminado: () -> Unit) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Nombre de la app con gradiente
             GradientText(
                 text = "HabitFlow",
                 modifier = Modifier.alpha(textoAlpha.value)
@@ -108,7 +97,6 @@ fun SplashScreen(onSplashTerminado: () -> Unit) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Frase motivacional
             Text(
                 text = frase,
                 style = MaterialTheme.typography.bodyLarge,
@@ -120,7 +108,6 @@ fun SplashScreen(onSplashTerminado: () -> Unit) {
     }
 }
 
-// ── Texto con brush gradiente violeta→coral ───────────────────────
 @Composable
 private fun GradientText(text: String, modifier: Modifier = Modifier) {
     val gradient = Brush.horizontalGradient(

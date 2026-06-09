@@ -31,28 +31,25 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-// ── Rutas ─────────────────────────────────────────────────────────
 object Rutas {
-    const val SPLASH    = "splash"
-    const val LOGIN     = "login"
-    const val REGISTRO  = "registro"
-    const val HOME      = "home"
+    const val SPLASH = "splash"
+    const val LOGIN = "login"
+    const val REGISTRO = "registro"
+    const val HOME = "home"
     const val DESCUBRIR = "descubrir"
-    const val LOGROS    = "logros"
-    const val DETALLE   = "detalle/{habitoId}"
-    // Mapa del logro: lat y lng como String para evitar problemas de precisión en la ruta
+    const val LOGROS = "logros"
+    const val DETALLE = "detalle/{habitoId}"
     const val MAPA_LOGRO = "mapa_logro/{lat}/{lng}/{nombre}/{fecha}"
-
     const val EDITAR_HABITO = "editar_habito/{habitoId}/{nombre}/{detalle}/{categoria}/{hora}"
-
 
     fun detalle(id: String) = "detalle/$id"
 
     fun mapaLogro(lat: Double, lng: Double, nombre: String, fecha: String?): String {
         val nombreEnc = URLEncoder.encode(nombre, StandardCharsets.UTF_8.toString())
-        val fechaEnc  = URLEncoder.encode(fecha ?: "sin_fecha", StandardCharsets.UTF_8.toString())
+        val fechaEnc = URLEncoder.encode(fecha ?: "sin_fecha", StandardCharsets.UTF_8.toString())
         return "mapa_logro/$lat/$lng/$nombreEnc/$fechaEnc"
     }
+
     fun editarHabito(
         habitoId: String,
         nombre: String,
@@ -60,10 +57,11 @@ object Rutas {
         categoria: String,
         hora: String
     ): String {
-        val nombreEnc   = URLEncoder.encode(nombre,   StandardCharsets.UTF_8.toString())
-        val detalleEnc  = URLEncoder.encode(detalle.ifBlank { " " }, StandardCharsets.UTF_8.toString())
+        val nombreEnc = URLEncoder.encode(nombre, StandardCharsets.UTF_8.toString())
+        val detalleEnc =
+            URLEncoder.encode(detalle.ifBlank { " " }, StandardCharsets.UTF_8.toString())
         val categoriaEnc = URLEncoder.encode(categoria, StandardCharsets.UTF_8.toString())
-        val horaEnc     = URLEncoder.encode(hora.ifBlank { "08:00" }, StandardCharsets.UTF_8.toString())
+        val horaEnc = URLEncoder.encode(hora.ifBlank { "08:00" }, StandardCharsets.UTF_8.toString())
         return "editar_habito/$habitoId/$nombreEnc/$detalleEnc/$categoriaEnc/$horaEnc"
     }
 }
@@ -74,7 +72,6 @@ data class ItemBarraNavegacion(
     val icono: ImageVector
 )
 
-// Rutas que NO muestran la barra inferior
 private val RUTAS_SIN_BARRA = setOf(Rutas.SPLASH, Rutas.LOGIN, Rutas.REGISTRO)
 
 @Composable
@@ -88,31 +85,33 @@ fun AppNavigation(
     val rutaActual = navBackStackEntry?.destination?.route
 
     val itemsNavegacion = listOf(
-        ItemBarraNavegacion(Rutas.HOME,      "Home",      Icons.Default.Home),
+        ItemBarraNavegacion(Rutas.HOME, "Home", Icons.Default.Home),
         ItemBarraNavegacion(Rutas.DESCUBRIR, "Descubrir", Icons.Default.List),
-        ItemBarraNavegacion(Rutas.LOGROS,    "Logros",    Icons.Default.Star)
+        ItemBarraNavegacion(Rutas.LOGROS, "Logros", Icons.Default.Star)
     )
 
     Scaffold(
         bottomBar = {
             val mostrarBarra = rutaActual != null
-                && rutaActual !in RUTAS_SIN_BARRA
-                && !rutaActual.startsWith("detalle")
-                && !rutaActual.startsWith("mapa_logro")
+                    && rutaActual !in RUTAS_SIN_BARRA
+                    && !rutaActual.startsWith("detalle")
+                    && !rutaActual.startsWith("mapa_logro")
 
             if (mostrarBarra) {
                 NavigationBar {
                     itemsNavegacion.forEach { item ->
                         NavigationBarItem(
-                            icon     = { Icon(item.icono, contentDescription = item.titulo) },
-                            label    = { Text(item.titulo) },
+                            icon = { Icon(item.icono, contentDescription = item.titulo) },
+                            label = { Text(item.titulo) },
                             selected = rutaActual == item.ruta,
-                            onClick  = {
+                            onClick = {
                                 if (rutaActual != item.ruta) {
                                     navController.navigate(item.ruta) {
-                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            saveState = true
+                                        }
                                         launchSingleTop = true
-                                        restoreState    = true
+                                        restoreState = true
                                     }
                                 }
                             }
@@ -123,28 +122,33 @@ fun AppNavigation(
         }
     ) { innerPadding ->
         NavHost(
-            navController    = navController,
+            navController = navController,
             startDestination = Rutas.SPLASH,
-            modifier         = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding)
         ) {
 
             // ── SPLASH ────────────────────────────────────────────
             composable(Rutas.SPLASH) {
                 SplashScreen(
                     onSplashTerminado = {
-                        val destino = if (FirebaseAuth.getInstance().currentUser != null)
-                            Rutas.HOME else Rutas.LOGIN
-                        navController.navigate(destino) {
-                            popUpTo(Rutas.SPLASH) { inclusive = true }
+                        val currentUser = FirebaseAuth.getInstance().currentUser
+                        if (currentUser != null) {
+                            onUsuarioLogueado(currentUser.uid)
+                            navController.navigate(Rutas.HOME) {
+                                popUpTo(Rutas.SPLASH) { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate(Rutas.LOGIN) {
+                                popUpTo(Rutas.SPLASH) { inclusive = true }
+                            }
                         }
                     }
                 )
             }
 
-            // ── LOGIN ─────────────────────────────────────────────
             composable(Rutas.LOGIN) {
                 LoginScreen(
-                    viewModel      = viewModel,
+                    viewModel = viewModel,
                     onLoginExitoso = {
                         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                         onUsuarioLogueado(uid)
@@ -156,7 +160,6 @@ fun AppNavigation(
                 )
             }
 
-            // ── REGISTRO ──────────────────────────────────────────
             composable(Rutas.REGISTRO) {
                 RegisterScreen(
                     onRegistroExitoso = {
@@ -170,102 +173,109 @@ fun AppNavigation(
                 )
             }
 
-            // ── HOME ──────────────────────────────────────────────
             composable(Rutas.HOME) {
                 HabitosScreen(
-                    viewModel    = viewModel,
-                    userId       = userId,
+                    viewModel = viewModel,
+                    userId = userId,
                     onVerDetalle = { habitoId ->
                         navController.navigate(Rutas.detalle(habitoId))
                     }
                 )
             }
 
-            // ── DESCUBRIR ─────────────────────────────────────────
             composable(Rutas.DESCUBRIR) {
                 DescubrirScreen(viewModel = viewModel, userId = userId)
             }
 
-            // ── LOGROS ────────────────────────────────────────────
             composable(Rutas.LOGROS) {
                 LogrosScreen(
                     viewModel = viewModel,
-                    userId    = userId,
+                    userId = userId,
                     onVerMapa = { lat, lng, nombre, fecha ->
                         navController.navigate(Rutas.mapaLogro(lat, lng, nombre, fecha))
                     }
                 )
             }
 
-            // ── DETALLE ───────────────────────────────────────────
             composable(
-                route     = Rutas.DETALLE,
+                route = Rutas.DETALLE,
                 arguments = listOf(navArgument("habitoId") { type = NavType.StringType })
             ) { backStackEntry ->
                 val habitoId = backStackEntry.arguments?.getString("habitoId") ?: ""
-                val uiState  by viewModel.uiState.collectAsState()
-                val habito   = uiState.habitos.find { it.id == habitoId }
+                val uiState by viewModel.uiState.collectAsState()
+                val habito = uiState.habitos.find { it.id == habitoId }
 
                 DetalleHabitoScreen(
-                    habitoId  = habitoId,
+                    habitoId = habitoId,
                     viewModel = viewModel,
-                    onVolver  = { navController.popBackStack() },
-                    onEditar  = if (habito?.esPersonalizado == true) {
+                    onVolver = { navController.popBackStack() },
+                    onEditar = if (habito?.esPersonalizado == true) {
                         {
                             navController.navigate(
                                 Rutas.editarHabito(
-                                    habitoId  = habito.habitoId,
-                                    nombre    = habito.nombreCache,
-                                    detalle   = habito.horaRecordatorio ?: "",
+                                    habitoId = habito.habitoId,
+                                    nombre = habito.nombreCache,
+                                    detalle = habito.horaRecordatorio ?: "",
                                     categoria = habito.categoriaCache,
-                                    hora      = habito.horaRecordatorio ?: "08:00"
+                                    hora = habito.horaRecordatorio ?: "08:00"
                                 )
                             )
                         }
                     } else null
                 )
             }
-            // editar
+
             composable(
                 route = Rutas.EDITAR_HABITO,
                 arguments = listOf(
-                    navArgument("habitoId")   { type = NavType.StringType },
-                    navArgument("nombre")     { type = NavType.StringType },
-                    navArgument("detalle")    { type = NavType.StringType },
-                    navArgument("categoria")  { type = NavType.StringType },
-                    navArgument("hora")       { type = NavType.StringType }
+                    navArgument("habitoId") { type = NavType.StringType },
+                    navArgument("nombre") { type = NavType.StringType },
+                    navArgument("detalle") { type = NavType.StringType },
+                    navArgument("categoria") { type = NavType.StringType },
+                    navArgument("hora") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
-                val habitoId  = backStackEntry.arguments?.getString("habitoId") ?: ""
-                val nombre    = URLDecoder.decode(backStackEntry.arguments?.getString("nombre") ?: "", StandardCharsets.UTF_8.toString())
-                val detalle   = URLDecoder.decode(backStackEntry.arguments?.getString("detalle") ?: "", StandardCharsets.UTF_8.toString()).trim()
-                val categoria = URLDecoder.decode(backStackEntry.arguments?.getString("categoria") ?: "", StandardCharsets.UTF_8.toString())
-                val hora      = URLDecoder.decode(backStackEntry.arguments?.getString("hora") ?: "", StandardCharsets.UTF_8.toString())
+                val habitoId = backStackEntry.arguments?.getString("habitoId") ?: ""
+                val nombre = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("nombre") ?: "",
+                    StandardCharsets.UTF_8.toString()
+                )
+                val detalle = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("detalle") ?: "",
+                    StandardCharsets.UTF_8.toString()
+                ).trim()
+                val categoria = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("categoria") ?: "",
+                    StandardCharsets.UTF_8.toString()
+                )
+                val hora = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("hora") ?: "",
+                    StandardCharsets.UTF_8.toString()
+                )
 
                 EditarHabitoScreen(
-                    userId           = userId,
-                    habitoId         = habitoId,
-                    nombreInicial    = nombre,
-                    detalleInicial   = detalle,
+                    userId = userId,
+                    habitoId = habitoId,
+                    nombreInicial = nombre,
+                    detalleInicial = detalle,
                     categoriaInicial = categoria,
-                    horaInicial      = hora,
-                    onVolver         = { navController.popBackStack() }
+                    horaInicial = hora,
+                    onVolver = { navController.popBackStack() }
                 )
             }
 
-            // ── MAPA LOGRO ────────────────────────────────────────
             composable(
                 route = Rutas.MAPA_LOGRO,
                 arguments = listOf(
-                    navArgument("lat")    { type = NavType.StringType },
-                    navArgument("lng")    { type = NavType.StringType },
+                    navArgument("lat") { type = NavType.StringType },
+                    navArgument("lng") { type = NavType.StringType },
                     navArgument("nombre") { type = NavType.StringType },
-                    navArgument("fecha")  { type = NavType.StringType }
+                    navArgument("fecha") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
-                val lat     = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
-                val lng     = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
-                val nombre  = URLDecoder.decode(
+                val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
+                val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
+                val nombre = URLDecoder.decode(
                     backStackEntry.arguments?.getString("nombre") ?: "",
                     StandardCharsets.UTF_8.toString()
                 )
@@ -277,10 +287,10 @@ fun AppNavigation(
 
                 MapaLogroScreen(
                     nombreDesafio = nombre,
-                    fechaLogro    = fecha,
-                    latitud       = lat,
-                    longitud      = lng,
-                    onVolver      = { navController.popBackStack() }
+                    fechaLogro = fecha,
+                    latitud = lat,
+                    longitud = lng,
+                    onVolver = { navController.popBackStack() }
                 )
             }
         }

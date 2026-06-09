@@ -1,14 +1,10 @@
 package com.catedra.tpinativo.domain.usecase
 
+import com.catedra.tpinativo.data.model.Cumplimiento
 import com.catedra.tpinativo.data.repository.CumplimientosRepository
 import com.catedra.tpinativo.data.repository.DesafiosRepository
 import com.catedra.tpinativo.data.repository.HabitosRepository
 
-/**
- * Da de baja un desafío completo:
- * desactiva cada hábito hijo, limpia su historial de cumplimientos
- * y elimina el registro de suscripción al desafío.
- */
 class DarDeBajaDesafioUseCase(
     private val habitosRepository: HabitosRepository,
     private val desafiosRepository: DesafiosRepository,

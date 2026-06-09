@@ -40,10 +40,10 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun TPINativoTheme(
-    darkTheme: Boolean = false,        // ← era isSystemInDarkTheme(), ahora siempre false
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = LightColorScheme // ← siempre light, ignorar darkTheme por completo
+    val colorScheme = LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {

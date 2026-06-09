@@ -10,18 +10,6 @@ import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-/**
- * Crea un hábito personalizado y lo hace visible en Home:
- *
- * 1. Persiste en `habitos_personalizados` (fuente de verdad del recordatorio).
- * 2. Crea un documento en `usuario_habitos` con los mismos datos cacheados,
- *    marcando `esPersonalizado = true` para distinguirlo del catálogo.
- * 3. Programa la alarma local con AlarmManager.
- *
- * Reglas de negocio:
- * - Nombre obligatorio.
- * - Hora en formato HH:mm (garantizado por el TimePickerDialog, pero validamos igual).
- */
 class CrearHabitoPersonalizadoUseCase(
     private val repository: HabitosPersonalizadosRepository,
     private val context: Context
@@ -41,32 +29,29 @@ class CrearHabitoPersonalizadoUseCase(
         if (!horaRecordatorio.matches(Regex("^\\d{2}:\\d{2}$")))
             return Result.failure(IllegalArgumentException("Hora inválida: usá formato HH:mm"))
 
-        // 1. Guardar en habitos_personalizados
         val idPersonalizado = repository.crear(
-            userId           = userId,
-            nombre           = nombre.trim(),
-            detalle          = detalle.trim(),
-            categoria        = categoria,
+            userId = userId,
+            nombre = nombre.trim(),
+            detalle = detalle.trim(),
+            categoria = categoria,
             horaRecordatorio = horaRecordatorio
         )
         if (idPersonalizado.isEmpty())
             return Result.failure(Exception("Error al guardar en Firestore"))
 
-        // 2. Crear UsuarioHabito para que aparezca en Home
         crearUsuarioHabito(
-            userId           = userId,
-            idPersonalizado  = idPersonalizado,
-            nombre           = nombre.trim(),
-            categoria        = categoria,
+            userId = userId,
+            idPersonalizado = idPersonalizado,
+            nombre = nombre.trim(),
+            categoria = categoria,
             horaRecordatorio = horaRecordatorio
         )
 
-        // 3. Programar alarma local
         NotificacionesService.programar(
-            context          = context,
-            habitoId         = idPersonalizado,
-            nombre           = nombre.trim(),
-            detalle          = detalle.trim().ifBlank { "Es hora de cumplir tu hábito 💪" },
+            context = context,
+            habitoId = idPersonalizado,
+            nombre = nombre.trim(),
+            detalle = detalle.trim().ifBlank { "Es hora de cumplir tu hábito 💪" },
             horaRecordatorio = horaRecordatorio
         )
 
@@ -84,25 +69,25 @@ class CrearHabitoPersonalizadoUseCase(
             val ref = db.collection("usuario_habitos").document()
             val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
             val doc = hashMapOf(
-                "id"                    to ref.id,
-                "userId"                to userId,
-                // habitoId apunta al doc de habitos_personalizados para poder cruzar datos
-                "habitoId"              to idPersonalizado,
-                "nombreCache"           to nombre,
-                "categoriaCache"        to categoria.display,
-                "frecuenciaCache"       to "DIARIO",
+                "id" to ref.id,
+                "userId" to userId,
+                "habitoId" to idPersonalizado,
+                "nombreCache" to nombre,
+                "categoriaCache" to categoria.display,
+                "frecuenciaCache" to "DIARIO",
                 "diasConfiguradosCache" to emptyList<Int>(),
-                "horaRecordatorio"      to horaRecordatorio,
-                "fechaInicio"           to hoy,
-                "activo"                to true,
-                "desafioId"             to null,
-                // Flag para distinguirlo de hábitos del catálogo
-                "esPersonalizado"       to true
+                "horaRecordatorio" to horaRecordatorio,
+                "fechaInicio" to hoy,
+                "activo" to true,
+                "desafioId" to null,
+                "esPersonalizado" to true
             )
             ref.set(doc).await()
         } catch (e: Exception) {
-            android.util.Log.e("CrearHabitoUseCase", "Error creando UsuarioHabito: ${e.localizedMessage}")
-            // No fallamos el flujo principal — el hábito ya se guardó en habitos_personalizados
+            android.util.Log.e(
+                "CrearHabitoUseCase",
+                "Error creando UsuarioHabito: ${e.localizedMessage}"
+            )
         }
     }
 }

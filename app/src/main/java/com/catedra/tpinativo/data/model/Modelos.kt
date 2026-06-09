@@ -1,9 +1,5 @@
 package com.catedra.tpinativo.data.model
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  ENUMS
-// ─────────────────────────────────────────────────────────────────────────────
-
 enum class TipoFrecuencia { DIARIO, SEMANAL, MENSUAL }
 
 enum class TipoDesafio { ACUMULACION, COMBO }
@@ -15,10 +11,6 @@ enum class CategoriaHabito(val display: String) {
     PRODUCTIVIDAD("Productividad")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  COLECCIÓN: habitos
-//  Catálogo global.
-// ─────────────────────────────────────────────────────────────────────────────
 data class Habito(
     val id: String = "",
     val nombre: String = "",
@@ -27,9 +19,6 @@ data class Habito(
     val diasConfigurados: List<Int> = emptyList()
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  COLECCIÓN: desafios
-// ─────────────────────────────────────────────────────────────────────────────
 data class Desafio(
     val id: String = "",
     val nombre: String = "",
@@ -39,9 +28,6 @@ data class Desafio(
     val meta: Int = 0
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  COLECCIÓN: usuario_habitos
-// ─────────────────────────────────────────────────────────────────────────────
 data class UsuarioHabito(
     val id: String = "",
     val userId: String = "",
@@ -57,9 +43,6 @@ data class UsuarioHabito(
     val esPersonalizado: Boolean = false
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  COLECCIÓN: usuario_desafios
-// ─────────────────────────────────────────────────────────────────────────────
 data class UsuarioDesafio(
     val id: String = "",
     val userId: String = "",
@@ -70,12 +53,10 @@ data class UsuarioDesafio(
     val fechaLogro: String? = null,
     val habitosHijosIds: List<String> = emptyList(),
     val logroLatitud: Double? = null,
-    val logroLongitud: Double? = null
+    val logroLongitud: Double? = null,
+    val activo: Boolean = true
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  COLECCIÓN: historial_cumplimientos
-// ─────────────────────────────────────────────────────────────────────────────
 data class Cumplimiento(
     val id: String = "",
     val userId: String = "",
@@ -85,18 +66,13 @@ data class Cumplimiento(
     val nota: String? = null
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  COLECCIÓN: habitos_personalizados
-//  Hábitos creados por el propio usuario. Siempre DIARIO.
-//  El campo horaRecordatorio dispara una notificación local (AlarmManager).
-// ─────────────────────────────────────────────────────────────────────────────
 data class HabitoPersonalizado(
-    val id: String = "",                          // doc.id generado por Firestore
+    val id: String = "",
     val userId: String = "",
     val nombre: String = "",
     val detalle: String = "",
     val categoria: CategoriaHabito = CategoriaHabito.SALUD,
-    val horaRecordatorio: String = "",            // formato "HH:mm", ej: "08:30"
+    val horaRecordatorio: String = "",
     val activo: Boolean = true,
-    val fechaCreacion: String = ""                // ISO yyyy-MM-dd
+    val fechaCreacion: String = ""
 )

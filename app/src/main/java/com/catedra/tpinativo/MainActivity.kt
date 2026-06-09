@@ -27,7 +27,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // La factory ahora instancia todos los repos y use cases internamente
         habitosViewModel = ViewModelProvider(
             this,
             HabitosViewModelFactory(this)
@@ -37,15 +36,15 @@ class MainActivity : ComponentActivity() {
             TPINativoTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color    = MaterialTheme.colorScheme.background
+                    color = MaterialTheme.colorScheme.background
                 ) {
                     var userId by remember {
                         mutableStateOf(FirebaseAuth.getInstance().currentUser?.uid ?: "")
                     }
 
                     AppNavigation(
-                        viewModel  = habitosViewModel,
-                        userId     = userId,
+                        viewModel = habitosViewModel,
+                        userId = userId,
                         onUsuarioLogueado = { nuevoId -> userId = nuevoId }
                     )
                 }

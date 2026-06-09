@@ -3,6 +3,7 @@ package com.catedra.tpinativo.data.repository
 import com.catedra.tpinativo.data.model.Desafio
 import com.catedra.tpinativo.data.model.TipoDesafio
 import com.catedra.tpinativo.data.model.UsuarioDesafio
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
@@ -10,8 +11,8 @@ import java.time.format.DateTimeFormatter
 
 class DesafiosRepository {
     private val db = FirebaseFirestore.getInstance()
-
-    // ─── Catálogo global ─────────────────────────────────────────────────────
+    private val auth = FirebaseAuth.getInstance()
+    private fun uid(): String = auth.currentUser?.uid ?: ""
 
     suspend fun obtenerTodosLosDesafios(): List<Desafio> {
         return try {
@@ -21,14 +22,14 @@ class DesafiosRepository {
                 .map { doc ->
                     val tipoStr = doc.getString("tipo") ?: "ACUMULACION"
                     Desafio(
-                        id          = doc.id,
-                        nombre      = doc.getString("nombre") ?: "",
+                        id = doc.id,
+                        nombre = doc.getString("nombre") ?: "",
                         descripcion = doc.getString("descripcion") ?: "",
-                        tipo        = runCatching { TipoDesafio.valueOf(tipoStr.uppercase()) }
+                        tipo = runCatching { TipoDesafio.valueOf(tipoStr.uppercase()) }
                             .getOrDefault(TipoDesafio.ACUMULACION),
-                        habitosIds  = (doc.get("habitosIds") as? List<*>)
+                        habitosIds = (doc.get("habitosIds") as? List<*>)
                             ?.filterIsInstance<String>() ?: emptyList(),
-                        meta        = doc.getLong("meta")?.toInt() ?: 1
+                        meta = doc.getLong("meta")?.toInt() ?: 1
                     )
                 }
         } catch (e: Exception) {
@@ -43,14 +44,14 @@ class DesafiosRepository {
             if (!doc.exists()) return null
             val tipoStr = doc.getString("tipo") ?: "ACUMULACION"
             Desafio(
-                id          = doc.id,
-                nombre      = doc.getString("nombre") ?: "",
+                id = doc.id,
+                nombre = doc.getString("nombre") ?: "",
                 descripcion = doc.getString("descripcion") ?: "",
-                tipo        = runCatching { TipoDesafio.valueOf(tipoStr.uppercase()) }
+                tipo = runCatching { TipoDesafio.valueOf(tipoStr.uppercase()) }
                     .getOrDefault(TipoDesafio.ACUMULACION),
-                habitosIds  = (doc.get("habitosIds") as? List<*>)
+                habitosIds = (doc.get("habitosIds") as? List<*>)
                     ?.filterIsInstance<String>() ?: emptyList(),
-                meta        = doc.getLong("meta")?.toInt() ?: 1
+                meta = doc.getLong("meta")?.toInt() ?: 1
             )
         } catch (e: Exception) {
             android.util.Log.e("DesafiosRepo", "obtenerDesafioPorId: ${e.localizedMessage}")
@@ -58,41 +59,48 @@ class DesafiosRepository {
         }
     }
 
-    // ─── Suscripciones usuario ────────────────────────────────────────────────
     suspend fun obtenerTodosLosDesafiosUsuario(userId: String): List<UsuarioDesafio> {
+        val uidReal = uid().ifEmpty { userId }
         return try {
             db.collection("usuario_desafios")
-                .whereEqualTo("userId", userId)
-                // ← sin filtro activo
+                .whereEqualTo("userId", uidReal)
                 .get().await().documents
                 .mapNotNull { doc ->
                     doc.toObject(UsuarioDesafio::class.java)?.copy(
-                        id            = doc.id,
-                        logroLatitud  = (doc.get("logroLatitud") as? Number)?.toDouble(),
+                        id = doc.id,
+                        logroLatitud = (doc.get("logroLatitud") as? Number)?.toDouble(),
                         logroLongitud = (doc.get("logroLongitud") as? Number)?.toDouble()
                     )
                 }
         } catch (e: Exception) {
-            android.util.Log.e("DesafiosRepo", "obtenerTodosLosDesafiosUsuario: ${e.localizedMessage}")
+            android.util.Log.e(
+                "DesafiosRepo",
+                "obtenerTodosLosDesafiosUsuario: ${e.localizedMessage}"
+            )
             emptyList()
         }
     }
+
     suspend fun obtenerDesafiosUsuario(userId: String): List<UsuarioDesafio> {
+        val uidReal = uid().ifEmpty { userId }
         return try {
             val resultado = db.collection("usuario_desafios")
-                .whereEqualTo("userId", userId)
+                .whereEqualTo("userId", uidReal)
                 .whereEqualTo("activo", true)
                 .get().await()
 
-            android.util.Log.d("DESAFIOS_REPO", "userId=$userId | docs=${resultado.size()}")
+            android.util.Log.d("DESAFIOS_REPO", "userId=$uidReal | docs=${resultado.size()}")
             resultado.documents.forEach {
-                android.util.Log.d("DESAFIOS_REPO", "doc=${it.id} | activo=${it.getBoolean("activo")}")
+                android.util.Log.d(
+                    "DESAFIOS_REPO",
+                    "doc=${it.id} | activo=${it.getBoolean("activo")}"
+                )
             }
 
             resultado.documents.mapNotNull { doc ->
                 doc.toObject(UsuarioDesafio::class.java)?.copy(
-                    id            = doc.id,
-                    logroLatitud  = (doc.get("logroLatitud") as? Number)?.toDouble(),
+                    id = doc.id,
+                    logroLatitud = (doc.get("logroLatitud") as? Number)?.toDouble(),
                     logroLongitud = (doc.get("logroLongitud") as? Number)?.toDouble()
                 )
             }
@@ -102,34 +110,41 @@ class DesafiosRepository {
         }
     }
 
-    /**
-     * Crea el registro de suscripción del usuario al desafío.
-     * Usa ID determinístico userId_desafioId para garantizar idempotencia.
-     */
     suspend fun suscribirUsuarioADesafio(
         userId: String,
         desafio: Desafio,
         habitosHijosIds: List<String>
     ) {
-        val docId = "${userId}_${desafio.id}"
+        val uidReal = uid().ifEmpty { userId }
+        android.util.Log.d("SUSCRIBIR", "userId param=$userId | auth.uid=$uidReal")
+
+        if (uidReal.isEmpty()) {
+            android.util.Log.e("DesafiosRepo", "suscribirUsuarioADesafio: usuario no autenticado")
+            return
+        }
+
+        val docId = "${uidReal}_${desafio.id}"
         try {
             val yaExiste = db.collection("usuario_desafios")
                 .document(docId).get().await().exists()
-            if (yaExiste) return
+            if (yaExiste) {
+                android.util.Log.d("SUSCRIBIR", "Ya existe: $docId")
+                return
+            }
 
             val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
             val doc = hashMapOf(
-                "id"               to docId,
-                "userId"           to userId,
-                "desafioId"        to desafio.id,
-                "nombreCache"      to desafio.nombre,
+                "id" to docId,
+                "userId" to uidReal,
+                "desafioId" to desafio.id,
+                "nombreCache" to desafio.nombre,
                 "fechaSuscripcion" to hoy,
-                "completado"       to false,
-                "fechaLogro"       to null,
-                "habitosHijosIds"  to habitosHijosIds,
-                "logroLatitud"     to null,
-                "logroLongitud"    to null,
-                "activo"           to true
+                "completado" to false,
+                "fechaLogro" to null,
+                "habitosHijosIds" to habitosHijosIds,
+                "logroLatitud" to null,
+                "logroLongitud" to null,
+                "activo" to true
             )
             db.collection("usuario_desafios").document(docId).set(doc).await()
         } catch (e: Exception) {
@@ -137,34 +152,31 @@ class DesafiosRepository {
         }
     }
 
-    /**
-     * Marca el desafío como completado, guarda la fecha del logro
-     * y opcionalmente la geolocalización donde fue conseguido.
-     */
     suspend fun marcarDesafioCompletado(
         userId: String,
         desafio: Desafio,
         latitud: Double? = null,
         longitud: Double? = null
     ) {
-        val docId = "${userId}_${desafio.id}"
+        val uidReal = uid().ifEmpty { userId }
+        val docId = "${uidReal}_${desafio.id}"
         try {
-
-            val ref  = db.collection("usuario_desafios").document(docId)
+            val ref = db.collection("usuario_desafios").document(docId)
             val snap = ref.get().await()
             android.util.Log.d("LOGRO", "Intentando marcar completado: $docId")
 
             if (!snap.exists() || snap.getBoolean("completado") == true) return
 
             val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-            val actualizaciones = mutableMapOf<String, Any?>(
-                "completado"  to true,
-                "fechaLogro"  to hoy,
-                "logroLatitud"  to latitud,
-                "logroLongitud" to longitud
+
+            val actualizaciones = mutableMapOf<String, Any>(
+                "completado" to true,
+                "fechaLogro" to hoy
             )
+            latitud?.let { actualizaciones["logroLatitud"] = it }
+            longitud?.let { actualizaciones["logroLongitud"] = it }
+
             ref.update(actualizaciones).await()
-            android.util.Log.d("LOGRO", "✅ Desafío marcado completado OK: $docId")
 
         } catch (e: Exception) {
             android.util.Log.e("DesafiosRepo", "marcarDesafioCompletado: ${e.localizedMessage}")
@@ -172,22 +184,28 @@ class DesafiosRepository {
     }
 
     suspend fun eliminarSuscripcionDesafio(userId: String, desafioId: String) {
+        val uidReal = uid().ifEmpty { userId }
         try {
             db.collection("usuario_desafios")
-                .document("${userId}_${desafioId}")
+                .document("${uidReal}_${desafioId}")
                 .delete().await()
         } catch (e: Exception) {
             android.util.Log.e("DesafiosRepo", "eliminarSuscripcionDesafio: ${e.localizedMessage}")
         }
     }
+
     suspend fun desactivarSuscripcionDesafio(userId: String, desafioId: String) {
+        val uidReal = uid().ifEmpty { userId }
         try {
             db.collection("usuario_desafios")
-                .document("${userId}_${desafioId}")
+                .document("${uidReal}_${desafioId}")
                 .update("activo", false)
                 .await()
         } catch (e: Exception) {
-            android.util.Log.e("DesafiosRepo", "desactivarSuscripcionDesafio: ${e.localizedMessage}")
+            android.util.Log.e(
+                "DesafiosRepo",
+                "desactivarSuscripcionDesafio: ${e.localizedMessage}"
+            )
         }
     }
 }

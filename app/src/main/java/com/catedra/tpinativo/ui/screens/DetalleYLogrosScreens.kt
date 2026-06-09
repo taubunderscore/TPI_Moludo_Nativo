@@ -25,10 +25,6 @@ import com.catedra.tpinativo.viewmodel.HabitosViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  DetalleHabitoScreen
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun DetalleHabitoScreen(
     habitoId: String,
@@ -38,11 +34,11 @@ fun DetalleHabitoScreen(
 
 
 ) {
-    val uiState          by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val desafiosCatalogo by viewModel.desafiosCatalogo.collectAsStateWithLifecycle()
 
-    val usuarioHabito   = uiState.habitos.find { it.id == habitoId }
-    val cumplidoHoy     = usuarioHabito?.let { uiState.estaCumplidoHoy(it.id) } ?: false
+    val usuarioHabito = uiState.habitos.find { it.id == habitoId }
+    val cumplidoHoy = usuarioHabito?.let { uiState.estaCumplidoHoy(it.id) } ?: false
     val fechasCumplidas = usuarioHabito?.let { uiState.fechasCumplidas(it.id) } ?: emptyList()
 
     val desafioAsociado = usuarioHabito?.desafioId?.let { desafioId ->
@@ -55,12 +51,12 @@ fun DetalleHabitoScreen(
         emptyList()
 
     DetalleHabitoContent(
-        usuarioHabito     = usuarioHabito,
-        cumplidoHoy       = cumplidoHoy,
-        fechasCumplidas   = fechasCumplidas,
-        desafioAsociado   = desafioAsociado,
+        usuarioHabito = usuarioHabito,
+        cumplidoHoy = cumplidoHoy,
+        fechasCumplidas = fechasCumplidas,
+        desafioAsociado = desafioAsociado,
         habitosDelDesafio = habitosDelDesafio,
-        onVolver          = onVolver,
+        onVolver = onVolver,
         onEditar = onEditar,
         onDarDeBajaSimple = {
             usuarioHabito?.let { viewModel.darDeBajaHabito(it.userId, it.id) }
@@ -70,8 +66,8 @@ fun DetalleHabitoScreen(
         onDarDeBajaCascada = {
             if (desafioAsociado != null && usuarioHabito != null) {
                 viewModel.darDeBajaDesafioCompleto(
-                    userId          = usuarioHabito.userId,
-                    desafioId       = desafioAsociado.id,
+                    userId = usuarioHabito.userId,
+                    desafioId = desafioAsociado.id,
                     habitosHijosIds = habitosDelDesafio.map { it.id }
                 )
             }
@@ -99,11 +95,11 @@ fun DetalleHabitoContent(
             AlertDialog(
                 onDismissRequest = { mostrarDialogo = false },
                 title = { Text("⚠️ Hábito con desafío asociado") },
-                text  = {
+                text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Este hábito pertenece al desafío:")
                         Text(
-                            text  = "\"${desafioAsociado.nombre}\"",
+                            text = "\"${desafioAsociado.nombre}\"",
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -111,7 +107,7 @@ fun DetalleHabitoContent(
                         habitosDelDesafio.forEach { Text("  •  ${it.nombreCache}") }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text  = "Esta acción no se puede deshacer.",
+                            text = "Esta acción no se puede deshacer.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -120,7 +116,7 @@ fun DetalleHabitoContent(
                 confirmButton = {
                     Button(
                         onClick = { mostrarDialogo = false; onDarDeBajaCascada() },
-                        colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) { Text("Dar de baja todo") }
                 },
                 dismissButton = {
@@ -131,11 +127,11 @@ fun DetalleHabitoContent(
             AlertDialog(
                 onDismissRequest = { mostrarDialogo = false },
                 title = { Text("¿Dar de baja este hábito?") },
-                text  = { Text("Se eliminará tu suscripción y el historial. Esta acción no se puede deshacer.") },
+                text = { Text("Se eliminará tu suscripción y el historial. Esta acción no se puede deshacer.") },
                 confirmButton = {
                     Button(
                         onClick = { mostrarDialogo = false; onDarDeBajaSimple() },
-                        colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) { Text("Sí, dar de baja") }
                 },
                 dismissButton = {
@@ -148,8 +144,10 @@ fun DetalleHabitoContent(
     Scaffold(
         topBar = {
             Row(
-                modifier              = Modifier.fillMaxWidth().padding(16.dp),
-                verticalAlignment     = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -163,9 +161,9 @@ fun DetalleHabitoContent(
                 if (onEditar != null && usuarioHabito?.esPersonalizado == true) {
                     IconButton(onClick = onEditar) {
                         Icon(
-                            imageVector        = Icons.Default.Edit,
+                            imageVector = Icons.Default.Edit,
                             contentDescription = "Editar",
-                            tint               = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -180,13 +178,27 @@ fun DetalleHabitoContent(
 
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(24.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(24.dp)
+        ) {
             if (usuarioHabito != null) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(usuarioHabito.nombreCache, style = MaterialTheme.typography.headlineMedium)
-                    Text("Categoría: ${usuarioHabito.categoriaCache}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Frecuencia: ${usuarioHabito.frecuenciaCache}", style = MaterialTheme.typography.bodyLarge)
-                    Text("Días cumplidos: ${fechasCumplidas.size}", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Categoría: ${usuarioHabito.categoriaCache}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "Frecuencia: ${usuarioHabito.frecuenciaCache}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        "Días cumplidos: ${fechasCumplidas.size}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
 
                     if (desafioAsociado != null) {
                         Surface(
@@ -194,9 +206,9 @@ fun DetalleHabitoContent(
                             color = MaterialTheme.colorScheme.tertiaryContainer
                         ) {
                             Text(
-                                text     = "🏆 ${desafioAsociado.nombre}",
-                                style    = MaterialTheme.typography.labelMedium,
-                                color    = MaterialTheme.colorScheme.onTertiaryContainer,
+                                text = "🏆 ${desafioAsociado.nombre}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                             )
                         }
@@ -206,20 +218,19 @@ fun DetalleHabitoContent(
                         Text("Estado hoy: ", style = MaterialTheme.typography.bodyLarge)
                         AssistChip(
                             onClick = {},
-                            label   = { Text(if (cumplidoHoy) "✅ CUMPLIDO" else "⏳ PENDIENTE") }
+                            label = { Text(if (cumplidoHoy) "✅ CUMPLIDO" else "⏳ PENDIENTE") }
                         )
                     }
                 }
             } else {
-                Text("No se encontró la información del hábito.", color = MaterialTheme.colorScheme.error)
+                Text(
+                    "No se encontró la información del hábito.",
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  LogrosScreen
-// ─────────────────────────────────────────────────────────────────────────────
 
 fun calcularRachaActual(fechasCumplidas: List<String>): Int {
     if (fechasCumplidas.isEmpty()) return 0
@@ -246,20 +257,18 @@ fun LogrosScreen(
     userId: String,
     onVerMapa: (lat: Double, lng: Double, nombre: String, fecha: String?) -> Unit
 ) {
-    val uiState       by viewModel.uiState.collectAsStateWithLifecycle()
-    val todosHabitos  by viewModel.todosHabitosUsuario.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val todosHabitos by viewModel.todosHabitosUsuario.collectAsStateWithLifecycle()
     val todosDesafios by viewModel.todosDesafiosUsuario.collectAsStateWithLifecycle()
-    val todasFechas   by viewModel.todasLasFechas.collectAsStateWithLifecycle()
+    val todasFechas by viewModel.todasLasFechas.collectAsStateWithLifecycle()
 
     LaunchedEffect(userId) {
         viewModel.cargarHabitos(userId)
         viewModel.cargarDatosLogros(userId)
     }
 
-    // ✅ Usa todos los desafíos incluyendo dados de baja
     val desafiosCompletados = todosDesafios.filter { it.completado }
 
-    // ✅ Usa todos los hábitos incluyendo dados de baja
     val habitosConRacha = todosHabitos
         .map { uh ->
             val fechas = todasFechas[uh.id] ?: emptyList()
@@ -273,34 +282,39 @@ fun LogrosScreen(
     ) { innerPadding ->
         if (desafiosCompletados.isEmpty() && habitosConRacha.isEmpty()) {
             Box(
-                modifier         = Modifier.fillMaxSize().padding(innerPadding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text      = "¡Todavía no ganaste ninguna medalla!\nCompletá tus desafíos en el Home.",
-                    style     = MaterialTheme.typography.bodyLarge,
-                    color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = "¡Todavía no ganaste ninguna medalla!\nCompletá tus desafíos en el Home.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
             }
         } else {
             LazyColumn(
-                modifier            = Modifier.fillMaxSize().padding(innerPadding).padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding      = PaddingValues(vertical = 16.dp)
+                contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 if (desafiosCompletados.isNotEmpty()) {
                     item {
                         Text(
                             "Vitrina de Trofeos 🏅",
-                            style    = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineSmall,
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
                     }
                     items(desafiosCompletados) { ud ->
                         TrofeoCard(
                             usuarioDesafio = ud,
-                            onVerMapa      = onVerMapa
+                            onVerMapa = onVerMapa
                         )
                     }
                 }
@@ -310,7 +324,7 @@ fun LogrosScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             "Rachas activas 🔥",
-                            style    = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineSmall,
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
                     }
@@ -322,8 +336,6 @@ fun LogrosScreen(
         }
     }
 }
-
-// ─── Cards ───────────────────────────────────────────────────────────────────
 
 @Composable
 fun TrofeoCard(
@@ -345,31 +357,33 @@ fun TrofeoCard(
                     )
                 } else Modifier
             ),
-        shape  = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
         )
     ) {
         Row(
-            modifier          = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                imageVector        = Icons.Default.Star,
+                imageVector = Icons.Default.Star,
                 contentDescription = "Medalla",
-                tint               = MaterialTheme.colorScheme.primary,
-                modifier           = Modifier.size(40.dp)
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(40.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text  = usuarioDesafio.nombreCache,
+                    text = usuarioDesafio.nombreCache,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 if (usuarioDesafio.fechaLogro != null) {
                     Text(
-                        text  = "Ganado el: ${usuarioDesafio.fechaLogro}",
+                        text = "Ganado el: ${usuarioDesafio.fechaLogro}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                     )
@@ -378,14 +392,14 @@ fun TrofeoCard(
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector        = Icons.Default.LocationOn,
+                            imageVector = Icons.Default.LocationOn,
                             contentDescription = "Ver ubicación",
-                            tint               = MaterialTheme.colorScheme.primary,
-                            modifier           = Modifier.size(14.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text  = "Toca para ver en mapa",
+                            text = "Toca para ver en mapa",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -403,28 +417,30 @@ fun RachaCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape    = RoundedCornerShape(16.dp),
-        colors   = CardDefaults.cardColors(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer
         )
     ) {
         Row(
-            modifier          = Modifier.padding(16.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 "🔥",
-                style    = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(end = 16.dp)
             )
             Column {
                 Text(
-                    text  = usuarioHabito.nombreCache,
+                    text = usuarioHabito.nombreCache,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
-                    text  = "$racha día${if (racha != 1) "s" else ""} consecutivo${if (racha != 1) "s" else ""}",
+                    text = "$racha día${if (racha != 1) "s" else ""} consecutivo${if (racha != 1) "s" else ""}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                 )

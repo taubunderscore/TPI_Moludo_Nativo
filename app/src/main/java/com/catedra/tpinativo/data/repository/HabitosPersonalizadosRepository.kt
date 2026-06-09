@@ -10,13 +10,10 @@ import java.time.format.DateTimeFormatter
 
 class HabitosPersonalizadosRepository {
 
-    private val db         = FirebaseFirestore.getInstance()
-    private val coleccion  = db.collection("habitos_personalizados")
-    private val TAG        = "HabPersonalizadosRepo"
+    private val db = FirebaseFirestore.getInstance()
+    private val coleccion = db.collection("habitos_personalizados")
+    private val TAG = "HabPersonalizadosRepo"
 
-    // ─── Lectura ─────────────────────────────────────────────────────────────
-
-    /** Devuelve todos los hábitos personalizados activos del usuario. */
     suspend fun obtenerHabitosDeUsuario(userId: String): List<HabitoPersonalizado> {
         return try {
             coleccion
@@ -26,7 +23,7 @@ class HabitosPersonalizadosRepository {
                 .documents
                 .mapNotNull { doc ->
                     doc.toObject(HabitoPersonalizado::class.java)?.copy(
-                        id        = doc.id,
+                        id = doc.id,
                         categoria = runCatching {
                             CategoriaHabito.valueOf(
                                 doc.getString("categoria") ?: "SALUD"
@@ -40,12 +37,6 @@ class HabitosPersonalizadosRepository {
         }
     }
 
-    // ─── Alta ────────────────────────────────────────────────────────────────
-
-    /**
-     * Crea un nuevo HabitoPersonalizado en Firestore.
-     * @return el doc.id generado, o "" si falló.
-     */
     suspend fun crear(
         userId: String,
         nombre: String,
@@ -57,17 +48,16 @@ class HabitosPersonalizadosRepository {
             val ref = coleccion.document()
             val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
             val doc = hashMapOf(
-                "id"               to ref.id,
-                "userId"           to userId,
-                "nombre"           to nombre,
-                "detalle"          to detalle,
-                "categoria"        to categoria.name,
+                "id" to ref.id,
+                "userId" to userId,
+                "nombre" to nombre,
+                "detalle" to detalle,
+                "categoria" to categoria.name,
                 "horaRecordatorio" to horaRecordatorio,
-                "activo"           to true,
-                "fechaCreacion"    to hoy
+                "activo" to true,
+                "fechaCreacion" to hoy
             )
             ref.set(doc).await()
-            Log.d(TAG, "Hábito personalizado creado: ${ref.id}")
             ref.id
         } catch (e: Exception) {
             Log.e(TAG, "crear: ${e.localizedMessage}")
@@ -75,17 +65,14 @@ class HabitosPersonalizadosRepository {
         }
     }
 
-    // ─── Baja lógica ─────────────────────────────────────────────────────────
-
-    /** Marca el hábito como inactivo (no lo borra, preserva historial). */
     suspend fun desactivar(habitoId: String) {
         try {
             coleccion.document(habitoId).update("activo", false).await()
-            Log.d(TAG, "Hábito personalizado desactivado: $habitoId")
         } catch (e: Exception) {
             Log.e(TAG, "desactivar: ${e.localizedMessage}")
         }
     }
+
     suspend fun editar(
         habitoId: String,
         userId: String,
@@ -95,19 +82,16 @@ class HabitosPersonalizadosRepository {
         horaRecordatorio: String
     ) {
         try {
-            android.util.Log.d("EDITAR_REPO", "Editando doc: $habitoId")  // ← acá
-
             coleccion.document(habitoId)
                 .update(
                     mapOf(
-                        "nombre"           to nombre,
-                        "detalle"          to detalle,
-                        "categoria"        to categoria.name,
+                        "nombre" to nombre,
+                        "detalle" to detalle,
+                        "categoria" to categoria.name,
                         "horaRecordatorio" to horaRecordatorio
                     )
                 ).await()
 
-            // También actualizar el cache en usuario_habitos
             val db = FirebaseFirestore.getInstance()
             val docs = db.collection("usuario_habitos")
                 .whereEqualTo("habitoId", habitoId)
@@ -117,7 +101,7 @@ class HabitosPersonalizadosRepository {
             docs.documents.forEach { doc ->
                 doc.reference.update(
                     mapOf(
-                        "nombreCache"    to nombre,
+                        "nombreCache" to nombre,
                         "categoriaCache" to categoria.display,
                         "horaRecordatorio" to horaRecordatorio
                     )

@@ -14,15 +14,10 @@ import java.io.InputStream
 
 class CloudinaryRepository(private val context: Context) {
 
-    private val CLOUD_NAME  = "dyylor99b"
-    private val UPLOAD_PRESET = "Habit_Flow"   // preset sin firma (unsigned)
+    private val CLOUD_NAME = "dyylor99b"
+    private val UPLOAD_PRESET = "Habit_Flow"
 
     private val client = OkHttpClient()
-
-    /**
-     * Sube la imagen al URI indicado y devuelve la URL segura de Cloudinary.
-     * Retorna null si falla.
-     */
     suspend fun subirFotoPerfil(imageUri: Uri, userId: String): String? =
         withContext(Dispatchers.IO) {
             try {
@@ -35,13 +30,12 @@ class CloudinaryRepository(private val context: Context) {
                 val requestBody = MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
                     .addFormDataPart(
-                        name     = "file",
+                        name = "file",
                         filename = "perfil_$userId.jpg",
-                        body     = bytes.toRequestBody(mediaType)
+                        body = bytes.toRequestBody(mediaType)
                     )
                     .addFormDataPart("upload_preset", UPLOAD_PRESET)
                     .addFormDataPart("public_id", "usuarios/$userId/perfil")
-                    // public_id fijo → si el usuario actualiza la foto, sobreescribe la anterior
                     .build()
 
                 val request = Request.Builder()
@@ -51,12 +45,14 @@ class CloudinaryRepository(private val context: Context) {
 
                 val response = client.newCall(request).execute()
                 if (!response.isSuccessful) {
-                    android.util.Log.e("CloudinaryRepo", "Error HTTP ${response.code}: ${response.body?.string()}")
+                    android.util.Log.e(
+                        "CloudinaryRepo",
+                        "Error HTTP ${response.code}: ${response.body?.string()}"
+                    )
                     return@withContext null
                 }
 
                 val json = JSONObject(response.body?.string() ?: "")
-                // secure_url es la URL HTTPS permanente de la imagen
                 json.getString("secure_url")
 
             } catch (e: Exception) {
