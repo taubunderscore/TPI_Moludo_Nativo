@@ -246,18 +246,23 @@ fun LogrosScreen(
     userId: String,
     onVerMapa: (lat: Double, lng: Double, nombre: String, fecha: String?) -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState       by viewModel.uiState.collectAsStateWithLifecycle()
+    val todosHabitos  by viewModel.todosHabitosUsuario.collectAsStateWithLifecycle()
+    val todosDesafios by viewModel.todosDesafiosUsuario.collectAsStateWithLifecycle()
+    val todasFechas   by viewModel.todasLasFechas.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(userId) {
         viewModel.cargarHabitos(userId)
+        viewModel.cargarDatosLogros(userId)
     }
 
-    val desafiosCompletados = uiState.desafiosSuscritos.filter { it.completado }
+    // ✅ Usa todos los desafíos incluyendo dados de baja
+    val desafiosCompletados = todosDesafios.filter { it.completado }
 
-    val habitosConRacha = uiState.habitos
-        .filter { it.desafioId == null }
+    // ✅ Usa todos los hábitos incluyendo dados de baja
+    val habitosConRacha = todosHabitos
         .map { uh ->
-            val fechas = uiState.fechasCumplidas(uh.id)
+            val fechas = todasFechas[uh.id] ?: emptyList()
             uh to calcularRachaActual(fechas)
         }
         .filter { (_, racha) -> racha > 0 }

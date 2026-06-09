@@ -21,8 +21,7 @@ class DarDeBajaDesafioUseCase(
     ) {
         habitosHijosIds.forEach { hijoId ->
             habitosRepository.desactivarUsuarioHabito(hijoId)
-            cumplimientosRepository.eliminarCumplimientosDeHabito(userId, hijoId)
         }
-        desafiosRepository.eliminarSuscripcionDesafio(userId, desafioId)
+        desafiosRepository.desactivarSuscripcionDesafio(userId, desafioId)
     }
 }

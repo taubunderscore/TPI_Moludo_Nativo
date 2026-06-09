@@ -39,7 +39,8 @@ data class HabitosUiState(
     val ultimoDesafioLogrado: String? = null,
     val mensajeInspirador: String? = null,
     // Foto de perfil del usuario logueado (URL de Cloudinary)
-    val fotoPerfilUrl: String? = null
+    val fotoPerfilUrl: String? = null,
+    val mensajeHabitoCumplido: String? = null
 ) {
     private val hoy: String
         get() = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -106,6 +107,7 @@ class HabitosViewModel(
             try {
                 val habitos           = habitosRepository.obtenerHabitosUsuario(userId)
                 val desafiosSuscritos = desafiosRepository.obtenerDesafiosUsuario(userId)
+                android.util.Log.d("CARGAR_HABITOS", "habitos=${habitos.size} | desafios=${desafiosSuscritos.size}")
 
                 val fechasPorHabito = habitos.associate { uh ->
                     uh.id to cumplimientosRepository.obtenerFechasCumplidas(userId, uh.id)
@@ -142,29 +144,63 @@ class HabitosViewModel(
             }
         }
     }
+    // listo todos los habitos cumplidos y desafios pormas que ya no esten suscriptos
+    private val _todosHabitosUsuario = MutableStateFlow<List<UsuarioHabito>>(emptyList())
+    val todosHabitosUsuario: StateFlow<List<UsuarioHabito>> = _todosHabitosUsuario.asStateFlow()
 
+    private val _todosDesafiosUsuario = MutableStateFlow<List<UsuarioDesafio>>(emptyList())
+    val todosDesafiosUsuario: StateFlow<List<UsuarioDesafio>> = _todosDesafiosUsuario.asStateFlow()
+
+    private val _todasLasFechas = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+    val todasLasFechas: StateFlow<Map<String, List<String>>> = _todasLasFechas.asStateFlow()
+
+    fun cargarDatosLogros(userId: String) {
+        viewModelScope.launch {
+            try {
+                val habitos  = habitosRepository.obtenerTodosLosHabitosUsuario(userId)
+                val desafios = desafiosRepository.obtenerTodosLosDesafiosUsuario(userId)
+                val fechas   = habitos.associate { uh ->
+                    uh.id to cumplimientosRepository.obtenerFechasCumplidas(userId, uh.id)
+                }
+                _todosHabitosUsuario.value  = habitos
+                _todosDesafiosUsuario.value = desafios
+                _todasLasFechas.value       = fechas
+            } catch (e: Exception) {
+                android.util.Log.e("HabitosVM", "cargarDatosLogros: ${e.localizedMessage}")
+            }
+        }
+    }
     // ─── Alternar cumplimiento ───────────────────────────────────────────────
 
     fun alternarEstadoHabito(usuarioHabito: UsuarioHabito) {
         viewModelScope.launch {
             try {
                 val resultado = gestionarProgresoUseCase.ejecutar(usuarioHabito)
-
+                val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
                 _uiState.update { estado ->
                     val nuevasFechas = estado.fechasPorHabito.toMutableMap()
                     nuevasFechas[usuarioHabito.id] = resultado.fechasCumplidas
+                    val seTildo = resultado.fechasCumplidas.contains(hoy)
+
                     estado.copy(
-                        fechasPorHabito      = nuevasFechas,
-                        ultimoDesafioLogrado = if (resultado.desafioDesbloqueado)
-                            resultado.nombreDesafio else null
+                        fechasPorHabito       = nuevasFechas,
+                        ultimoDesafioLogrado  = if (resultado.desafioDesbloqueado) resultado.nombreDesafio else null,
+                        mensajeHabitoCumplido = if (seTildo) "✅ ${usuarioHabito.nombreCache} cumplido hoy! 💪" else null
                     )
+                }
+
+            // ✅ Si se desbloqueó un desafío, refrescamos para ver el logro en Logros
+                if (resultado.desafioDesbloqueado) {
+                    cargarHabitos(usuarioHabito.userId)
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "No se pudo actualizar el estado") }
             }
         }
     }
-
+    fun resetearMensajeHabitoCumplido() {
+        _uiState.update { it.copy(mensajeHabitoCumplido = null) }
+    }
     // ─── Catálogo ────────────────────────────────────────────────────────────
 
     fun cargarCatalogoPorCategoria(categoria: String) {

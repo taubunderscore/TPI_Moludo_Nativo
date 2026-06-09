@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.catedra.tpinativo.data.model.CategoriaHabito
@@ -56,6 +57,21 @@ fun HabitosScreen(
     val context  = LocalContext.current
     val uiState  by viewModel.uiState.collectAsStateWithLifecycle()
     val desafios by viewModel.desafiosCatalogo.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // ── Snackbar al cumplir hábito ────────────────────────────────────────────
+    LaunchedEffect(uiState.mensajeHabitoCumplido) {
+        uiState.mensajeHabitoCumplido?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message  = it,
+                    duration = SnackbarDuration.Short
+                )
+            }
+            viewModel.resetearMensajeHabitoCumplido()
+        }
+    }
 
     // ── ViewModel de hábitos personalizados ──────────────────────────────────
     val personalizadosVM: HabitosPersonalizadosViewModel = viewModel(
@@ -143,15 +159,16 @@ fun HabitosScreen(
     }
 
     HabitosContent(
-        habitos                = uiState.habitos,
-        cargando               = uiState.cargando,
-        error                  = uiState.error,
-        estaCumplidoHoyFn      = { uiState.estaCumplidoHoy(it) },
-        desafiosCatalogo       = desafios,
-        onVerDetalle           = onVerDetalle,
-        onAlternarEstado       = { viewModel.alternarEstadoHabito(it) },
-        fotoPerfilUrl          = uiState.fotoPerfilUrl,
-        onNuevoHabitoPersonalizado = { mostrarSheetNuevoHabito = true }
+        habitos                    = uiState.habitos,
+        cargando                   = uiState.cargando,
+        error                      = uiState.error,
+        estaCumplidoHoyFn          = { uiState.estaCumplidoHoy(it) },
+        desafiosCatalogo           = desafios,
+        onVerDetalle               = onVerDetalle,
+        onAlternarEstado           = { viewModel.alternarEstadoHabito(it) },
+        fotoPerfilUrl              = uiState.fotoPerfilUrl,
+        onNuevoHabitoPersonalizado = { mostrarSheetNuevoHabito = true },
+        snackbarHostState          = snackbarHostState
     )
 }
 
@@ -170,7 +187,8 @@ fun HabitosContent(
     onVerDetalle: (String) -> Unit,
     onAlternarEstado: (UsuarioHabito) -> Unit,
     fotoPerfilUrl: String? = null,
-    onNuevoHabitoPersonalizado: () -> Unit = {}
+    onNuevoHabitoPersonalizado: () -> Unit = {},
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
 ) {
     var filtroSeleccionado by remember { mutableStateOf("PENDIENTES") }
     var textoBuscado       by remember { mutableStateOf("") }
@@ -277,7 +295,8 @@ fun HabitosContent(
                 )
             }
         },
-        floatingActionButtonPosition = FabPosition.End
+        floatingActionButtonPosition = FabPosition.End,
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         Column(
             modifier = Modifier

@@ -37,7 +37,18 @@ class HabitosRepository {
             emptyList()
         }
     }
-
+    suspend fun obtenerTodosLosHabitosUsuario(userId: String): List<UsuarioHabito> {
+        return try {
+            db.collection("usuario_habitos")
+                .whereEqualTo("userId", userId)
+                // ← sin filtro activo
+                .get().await().documents
+                .mapNotNull { it.toObject(UsuarioHabito::class.java)?.copy(id = it.id) }
+        } catch (e: Exception) {
+            android.util.Log.e("HabitosRepo", "obtenerTodosLosHabitosUsuario: ${e.localizedMessage}")
+            emptyList()
+        }
+    }
     suspend fun obtenerHabitoPorId(habitoId: String): Habito? {
         return try {
             val doc = db.collection("habitos").document(habitoId).get().await()
