@@ -59,23 +59,43 @@ class DesafiosRepository {
     }
 
     // ─── Suscripciones usuario ────────────────────────────────────────────────
-
-    suspend fun obtenerDesafiosUsuario(userId: String): List<UsuarioDesafio> {
+    suspend fun obtenerTodosLosDesafiosUsuario(userId: String): List<UsuarioDesafio> {
         return try {
             db.collection("usuario_desafios")
                 .whereEqualTo("userId", userId)
-                .get().await()
-                .documents
+                // ← sin filtro activo
+                .get().await().documents
                 .mapNotNull { doc ->
-                    // Mapeamos manual para incluir los nuevos campos de geo
-                    // (toObject() ignora campos no declarados con @get:Exclude, pero
-                    //  los campos nullable con default null funcionan bien)
                     doc.toObject(UsuarioDesafio::class.java)?.copy(
                         id            = doc.id,
                         logroLatitud  = (doc.get("logroLatitud") as? Number)?.toDouble(),
                         logroLongitud = (doc.get("logroLongitud") as? Number)?.toDouble()
                     )
                 }
+        } catch (e: Exception) {
+            android.util.Log.e("DesafiosRepo", "obtenerTodosLosDesafiosUsuario: ${e.localizedMessage}")
+            emptyList()
+        }
+    }
+    suspend fun obtenerDesafiosUsuario(userId: String): List<UsuarioDesafio> {
+        return try {
+            val resultado = db.collection("usuario_desafios")
+                .whereEqualTo("userId", userId)
+                .whereEqualTo("activo", true)
+                .get().await()
+
+            android.util.Log.d("DESAFIOS_REPO", "userId=$userId | docs=${resultado.size()}")
+            resultado.documents.forEach {
+                android.util.Log.d("DESAFIOS_REPO", "doc=${it.id} | activo=${it.getBoolean("activo")}")
+            }
+
+            resultado.documents.mapNotNull { doc ->
+                doc.toObject(UsuarioDesafio::class.java)?.copy(
+                    id            = doc.id,
+                    logroLatitud  = (doc.get("logroLatitud") as? Number)?.toDouble(),
+                    logroLongitud = (doc.get("logroLongitud") as? Number)?.toDouble()
+                )
+            }
         } catch (e: Exception) {
             android.util.Log.e("DesafiosRepo", "obtenerDesafiosUsuario: ${e.localizedMessage}")
             emptyList()
@@ -108,7 +128,8 @@ class DesafiosRepository {
                 "fechaLogro"       to null,
                 "habitosHijosIds"  to habitosHijosIds,
                 "logroLatitud"     to null,
-                "logroLongitud"    to null
+                "logroLongitud"    to null,
+                "activo"           to true
             )
             db.collection("usuario_desafios").document(docId).set(doc).await()
         } catch (e: Exception) {
@@ -128,8 +149,11 @@ class DesafiosRepository {
     ) {
         val docId = "${userId}_${desafio.id}"
         try {
+
             val ref  = db.collection("usuario_desafios").document(docId)
             val snap = ref.get().await()
+            android.util.Log.d("LOGRO", "Intentando marcar completado: $docId")
+
             if (!snap.exists() || snap.getBoolean("completado") == true) return
 
             val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -140,6 +164,8 @@ class DesafiosRepository {
                 "logroLongitud" to longitud
             )
             ref.update(actualizaciones).await()
+            android.util.Log.d("LOGRO", "✅ Desafío marcado completado OK: $docId")
+
         } catch (e: Exception) {
             android.util.Log.e("DesafiosRepo", "marcarDesafioCompletado: ${e.localizedMessage}")
         }
@@ -152,6 +178,16 @@ class DesafiosRepository {
                 .delete().await()
         } catch (e: Exception) {
             android.util.Log.e("DesafiosRepo", "eliminarSuscripcionDesafio: ${e.localizedMessage}")
+        }
+    }
+    suspend fun desactivarSuscripcionDesafio(userId: String, desafioId: String) {
+        try {
+            db.collection("usuario_desafios")
+                .document("${userId}_${desafioId}")
+                .update("activo", false)
+                .await()
+        } catch (e: Exception) {
+            android.util.Log.e("DesafiosRepo", "desactivarSuscripcionDesafio: ${e.localizedMessage}")
         }
     }
 }

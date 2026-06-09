@@ -31,16 +31,22 @@ class CumplimientosRepository {
         habitoCatalogoId: String
     ): Boolean {
         val hoy = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        android.util.Log.d("CUMPLIMIENTO", "userId=$userId | habitoId=$usuarioHabitoId | hoy=$hoy")
+
         return try {
             val existing = db.collection("historial_cumplimientos")
                 .whereEqualTo("userId", userId)
                 .whereEqualTo("habitoId", usuarioHabitoId)
                 .whereEqualTo("fecha", hoy)
                 .get().await()
+            android.util.Log.d("CUMPLIMIENTO", "Docs existentes: ${existing.size()}")
+
 
             if (!existing.isEmpty) {
                 // Ya estaba tildado → destildar
                 existing.documents.forEach { it.reference.delete().await() }
+                android.util.Log.d("CUMPLIMIENTO", "Destildado OK")
+
                 false
             } else {
                 // No estaba → tildar
@@ -54,10 +60,12 @@ class CumplimientosRepository {
                     "nota"             to null
                 )
                 ref.set(doc).await()
+                android.util.Log.d("CUMPLIMIENTO", "Tildado OK — docId=${ref.id}")
+
                 true
             }
         } catch (e: Exception) {
-            android.util.Log.e("CumplimientosRepo", "alternarCumplimientoHoy: ${e.localizedMessage}")
+            android.util.Log.e("CUMPLIMIENTO", "Error: ${e.localizedMessage}")
             false
         }
     }

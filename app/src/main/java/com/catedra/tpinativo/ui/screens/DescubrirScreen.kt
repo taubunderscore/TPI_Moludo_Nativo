@@ -35,7 +35,13 @@ fun DescubrirScreen(viewModel: HabitosViewModel, userId: String) {
             viewModel.resetearMensajeInspirador()
         }
     }
-
+    LaunchedEffect(userId) {
+        viewModel.cargarHabitos(userId)
+    }
+    // ✅ Este reacciona cuando desafiosSuscritos cambia
+    LaunchedEffect(uiState.desafiosSuscritos) {
+        android.util.Log.d("DESCUBRIR", "desafiosSuscritos actualizado: ${uiState.desafiosSuscritos.size}")
+    }
     LaunchedEffect(categoriaSeleccionada) {
         if (categoriaSeleccionada == "🏆 Desafíos") {
             viewModel.cargarDesafios()
