@@ -93,7 +93,7 @@ class HabitosPersonalizadosViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(cargando = true, error = null) }
             try {
-                repository.editar(habitoId, nombre, detalle, categoria, horaRecordatorio)
+                repository.editar(habitoId, userId, nombre, detalle, categoria, horaRecordatorio)
                 // Reprogramar la notificación con la nueva hora
                 NotificacionesService.programar(
                     context          = context,

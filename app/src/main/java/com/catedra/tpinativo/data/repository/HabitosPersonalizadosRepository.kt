@@ -88,6 +88,7 @@ class HabitosPersonalizadosRepository {
     }
     suspend fun editar(
         habitoId: String,
+        userId: String,
         nombre: String,
         detalle: String,
         categoria: CategoriaHabito,
@@ -110,6 +111,7 @@ class HabitosPersonalizadosRepository {
             val db = FirebaseFirestore.getInstance()
             val docs = db.collection("usuario_habitos")
                 .whereEqualTo("habitoId", habitoId)
+                .whereEqualTo("userId", userId)
                 .get().await()
 
             docs.documents.forEach { doc ->
