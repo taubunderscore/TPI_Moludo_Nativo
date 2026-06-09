@@ -89,7 +89,8 @@ class HabitosRepository {
     suspend fun suscribirUsuarioAHabito(
         userId: String,
         habito: Habito,
-        desafioId: String? = null
+        desafioId: String? = null,
+        horaRecordatorio: String? = null  // ✅ nuevo
     ): String {
         return try {
             val ref = db.collection("usuario_habitos").document()
@@ -102,7 +103,7 @@ class HabitosRepository {
                 "categoriaCache"          to habito.categoria,
                 "frecuenciaCache"         to habito.frecuencia.name,
                 "diasConfiguradosCache"   to habito.diasConfigurados,
-                "horaRecordatorio"        to null,
+                "horaRecordatorio"        to horaRecordatorio,  // ✅ usa el parámetro
                 "fechaInicio"             to hoy,
                 "activo"                  to true,
                 "desafioId"               to desafioId
